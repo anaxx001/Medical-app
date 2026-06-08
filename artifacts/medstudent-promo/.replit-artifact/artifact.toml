@@ -1,0 +1,31 @@
+kind = "video"
+previewPath = "/medstudent-promo/"
+title = "MedStudent Promo Video"
+version = "1.0.0"
+id = "artifacts/medstudent-promo"
+router = "path"
+
+[[integratedSkills]]
+name = "video-js"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/medstudent-promo/" ]
+localPort = 24106
+
+[services.development]
+run = "pnpm --filter @workspace/medstudent-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/medstudent-promo", "run", "build" ]
+publicDir = "artifacts/medstudent-promo/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24106"
+BASE_PATH = "/medstudent-promo/"

@@ -1,0 +1,20 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "j7yMq9ylnAdwrPJgnUXze"
+uri = "file://artifacts/medstudent-promo/public/images/community.jpg"
+type = "image"
+title = "African medical students studying together looking at laptop"
+
+[[outputs]]
+id = "OUvlt1T6NKPFN3MjeH99c"
+uri = "file://artifacts/medstudent-promo/public/images/student.jpg"
+type = "image"
+title = "African medical student looking at smartphone smiling"
+
+[[outputs]]
+id = "iOkelcIc9XiSLcKSnGOK6"
+uri = "file://artifacts/medstudent-promo/public/images/doctor.jpg"
+type = "image"
+title = "Nigerian medical student wearing stethoscope doctor"
