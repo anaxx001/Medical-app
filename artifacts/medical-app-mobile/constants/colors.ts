@@ -42,4 +42,19 @@ const colors = {
   radius: 16,
 };
 
-export default colors;
+const Colors = {
+  bg: colors.light.background,
+  text: colors.light.text,
+  textMuted: colors.light.textMuted,
+  textLight: colors.light.textLight,
+  primary: colors.light.primary,
+  accent: colors.light.accent,
+  surface: colors.light.surface,
+  surface2: colors.light.surface2,
+  border: colors.light.border,
+  destructive: colors.light.destructive,
+  tint: colors.light.tint,
+};
+
+export { colors };
+export default Colors;

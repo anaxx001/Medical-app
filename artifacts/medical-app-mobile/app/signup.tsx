@@ -54,8 +54,7 @@ export default function SignupScreen() {
       });
       if (signupErr) { setError(signupErr.message); return; }
       if (data.user) {
-        // @ts-ignore
-        await supabase.from("profiles").upsert({
+        await (supabase as any).from("profiles").upsert({
           id: data.user.id,
           username: username.trim(),
           full_name: fullName.trim(),

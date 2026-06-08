@@ -17,12 +17,12 @@ export default function AdminScreen() {
 
   useEffect(() => {
     if (!user) { router.replace("/login"); return; }
-    supabase
+    (supabase as any)
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single()
-      .then(({ data }) => {
+      .then(({ data }: { data: { role: string } | null }) => {
         setRole(data?.role ?? null);
         setLoading(false);
       });

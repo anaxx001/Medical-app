@@ -109,8 +109,7 @@ export default function CreateScreen() {
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      // @ts-ignore
-      const { error: err } = await supabase.from("posts").insert({
+      const { error: err } = await (supabase as any).from("posts").insert({
         title: title.trim(),
         content: content.trim() || null,
         community_id: selectedCommunity.id,

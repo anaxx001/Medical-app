@@ -81,8 +81,7 @@ export default function PostDetailScreen() {
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     try {
-      // @ts-ignore
-      const { data, error } = await supabase.from("comments").insert({
+      const { data, error } = await (supabase as any).from("comments").insert({
         post_id: id,
         author_id: user.id,
         content: newComment.trim(),

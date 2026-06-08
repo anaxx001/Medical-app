@@ -11,3 +11,5 @@ export function createClient() {
   }
   return clientInstance;
 }
+
+export const supabase = createClient();
