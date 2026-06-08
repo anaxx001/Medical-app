@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PostCard, type Post } from "@/components/PostCard";
+import { PostCardSkeleton } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
@@ -98,8 +98,16 @@ export default function CommunityScreen() {
 
   if (loading) {
     return (
-      <View style={[s.container, s.loading]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={s.container}>
+        <View style={s.navBar}>
+          <Pressable onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={24} color={colors.foreground} />
+          </Pressable>
+          <Text style={s.title} numberOfLines={1}>{slug}</Text>
+        </View>
+        <View style={[s.list, { paddingTop: 10 }]}>
+          {[1, 2, 3, 4].map((i) => <PostCardSkeleton key={i} />)}
+        </View>
       </View>
     );
   }

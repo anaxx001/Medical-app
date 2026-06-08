@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { TypingIndicator } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { sendChatMessage } from "@/lib/api";
 
@@ -252,7 +253,7 @@ export default function ChatbotScreen() {
             ListHeaderComponent={
               loading ? (
                 <View style={s.typing}>
-                  <ActivityIndicator size="small" color={colors.primary} />
+                  <TypingIndicator />
                 </View>
               ) : null
             }

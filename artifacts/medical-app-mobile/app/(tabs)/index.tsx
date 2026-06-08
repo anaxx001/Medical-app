@@ -2,7 +2,6 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PostCard, type Post } from "@/components/PostCard";
+import { PostCardSkeleton } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
@@ -209,8 +209,8 @@ export default function FeedScreen() {
       </View>
 
       {loading ? (
-        <View style={s.loading}>
-          <ActivityIndicator color={colors.primary} size="large" />
+        <View style={[s.list, { paddingTop: 10 }]}>
+          {[1, 2, 3, 4, 5].map((i) => <PostCardSkeleton key={i} />)}
         </View>
       ) : (
         <FlatList

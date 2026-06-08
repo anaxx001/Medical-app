@@ -2,7 +2,6 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -13,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PostCard, type Post } from "@/components/PostCard";
 import { Avatar } from "@/components/Avatar";
+import { ProfileHeaderSkeleton, PostCardSkeleton } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
@@ -141,8 +141,14 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <View style={[s.container, s.loading]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={s.container}>
+        <View style={s.header}>
+          <Text style={s.title}>Profile</Text>
+        </View>
+        <ProfileHeaderSkeleton />
+        <View style={[s.list, { paddingTop: 14 }]}>
+          {[1, 2, 3].map((i) => <PostCardSkeleton key={i} />)}
+        </View>
       </View>
     );
   }

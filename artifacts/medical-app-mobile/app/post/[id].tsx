@@ -15,6 +15,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/Avatar";
 import { PostCard, type Post } from "@/components/PostCard";
+import { PostCardSkeleton, CommentSkeleton } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
@@ -171,8 +172,11 @@ export default function PostDetailScreen() {
       </View>
 
       {loading ? (
-        <View style={s.loading}>
-          <ActivityIndicator color={colors.primary} size="large" />
+        <View style={{ padding: 14 }}>
+          <PostCardSkeleton />
+          <CommentSkeleton />
+          <CommentSkeleton />
+          <CommentSkeleton />
         </View>
       ) : (
         <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding" keyboardVerticalOffset={0}>

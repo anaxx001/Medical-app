@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -11,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CommunityItemSkeleton } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { createClient } from "@/lib/supabase";
 
@@ -94,8 +94,14 @@ export default function CommunitiesScreen() {
 
   if (loading) {
     return (
-      <View style={[s.container, s.loading]}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={s.container}>
+        <View style={s.header}>
+          <Text style={s.title}>Communities</Text>
+          <Text style={s.subtitle}>Find your study group</Text>
+        </View>
+        <View style={[s.list, { paddingTop: 12 }]}>
+          {[1, 2, 3, 4, 5, 6].map((i) => <CommunityItemSkeleton key={i} />)}
+        </View>
       </View>
     );
   }
