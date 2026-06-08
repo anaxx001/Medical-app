@@ -1,0 +1,25 @@
+kind = "mobile"
+previewPath = "/medical-app-mobile"
+title = "MedStudent Mobile"
+version = "1.0.0"
+id = "artifacts/medical-app-mobile"
+router = "path"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/medical-app-mobile" ]
+localPort = 8099
+
+[services.development]
+run = "pnpm --filter @workspace/medical-app-mobile run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/medical-app-mobile", "run", "build" ]
+serve = "node artifacts/medical-app-mobile/server/serve.js"
+
+[services.env]
+PORT = "8099"
