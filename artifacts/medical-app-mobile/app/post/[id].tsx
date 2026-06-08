@@ -19,6 +19,8 @@ import { PostCardSkeleton, CommentSkeleton } from "@/components/Skeleton";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
+import { notifyReply } from "@/lib/api";
+
 
 interface Comment {
   id: string;
@@ -42,7 +44,7 @@ export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const supabase = createClient();
 
   const [post, setPost] = useState<Post | null>(null);
@@ -91,6 +93,17 @@ export default function PostDetailScreen() {
       setComments((prev) => [...prev, data as unknown as Comment]);
       setNewComment("");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      const newCommentId = (data as any)?.id;
+      if (newCommentId && session?.access_token) {
+        notifyReply({
+          commentId: newCommentId,
+          commenterName: (data as any)?.author?.username ?? user.email ?? "Someone",
+          postTitle: post?.title,
+          postId: id!,
+          authToken: session.access_token,
+        });
+      }
     } catch (e) { console.error(e); } finally { setSubmitting(false); }
   }
 

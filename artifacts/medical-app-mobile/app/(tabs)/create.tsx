@@ -8,6 +8,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -16,19 +17,21 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
+import { notifyAnnouncement } from "@/lib/api";
 
 interface Community { id: string; name: string; slug: string; icon: string; }
 
 export default function CreateScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const supabase = createClient();
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [communities, setCommunities] = useState<Community[]>([]);
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
+  const [isAnnouncement, setIsAnnouncement] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -82,6 +85,28 @@ export default function CreateScreen() {
     communityChipActive: { borderColor: colors.primary, backgroundColor: colors.secondary },
     communityChipText: { fontSize: 13, color: colors.foreground, fontFamily: "DMSans_400Regular" },
     communityChipTextActive: { color: colors.primary, fontFamily: "DMSans_500Medium" },
+    announcementRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      backgroundColor: colors.card,
+      borderRadius: colors.radius,
+      borderWidth: 1,
+      borderColor: isAnnouncement ? colors.primary : colors.border,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    announcementLabel: {
+      fontSize: 14,
+      fontFamily: "DMSans_500Medium",
+      color: isAnnouncement ? colors.primary : colors.foreground,
+    },
+    announcementDesc: {
+      fontSize: 12,
+      fontFamily: "DMSans_400Regular",
+      color: colors.mutedForeground,
+      marginTop: 2,
+    },
     submitBtn: {
       backgroundColor: colors.primary,
       borderRadius: 50,
@@ -109,20 +134,40 @@ export default function CreateScreen() {
     setSubmitting(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
-      const { error: err } = await (supabase as any).from("posts").insert({
+      const { data: newPost, error: err } = await (supabase as any).from("posts").insert({
         title: title.trim(),
         content: content.trim() || null,
         community_id: selectedCommunity.id,
         author_id: user!.id,
         upvotes: 0,
         downvotes: 0,
-        is_announcement: false,
+        is_announcement: isAnnouncement,
         is_pinned: false,
-      });
+      }).select("id").single();
       if (err) throw err;
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      if (isAnnouncement && newPost?.id && session?.access_token) {
+        notifyAnnouncement({
+          communitySlug: selectedCommunity.slug,
+          communityName: selectedCommunity.name,
+          communityId: selectedCommunity.id,
+          postId: newPost.id,
+          postTitle: title.trim(),
+          posterUserId: user!.id,
+          authToken: session.access_token,
+        });
+      }
+
       setSuccess(true);
-      setTimeout(() => { setSuccess(false); setTitle(""); setContent(""); setSelectedCommunity(null); router.push("/"); }, 1500);
+      setTimeout(() => {
+        setSuccess(false);
+        setTitle("");
+        setContent("");
+        setSelectedCommunity(null);
+        setIsAnnouncement(false);
+        router.push("/");
+      }, 1500);
     } catch (e: any) {
       setError(e.message || "Failed to create post");
     } finally {
@@ -150,7 +195,9 @@ export default function CreateScreen() {
       <View style={[s.container, { justifyContent: "center", alignItems: "center" }]}>
         <View style={s.successBox}>
           <Ionicons name="checkmark-circle" size={72} color={colors.accent} />
-          <Text style={s.successText}>Post Published!</Text>
+          <Text style={s.successText}>
+            {isAnnouncement ? "Announcement Published!" : "Post Published!"}
+          </Text>
           <Text style={{ fontSize: 14, color: colors.mutedForeground, fontFamily: "DMSans_400Regular" }}>Taking you to the feed...</Text>
         </View>
       </View>
@@ -202,6 +249,25 @@ export default function CreateScreen() {
             ))}
           </View>
         </View>
+        <View>
+          <Text style={s.label}>Post Type</Text>
+          <Pressable style={s.announcementRow} onPress={() => setIsAnnouncement((v) => !v)}>
+            <View style={{ flex: 1 }}>
+              <Text style={s.announcementLabel}>
+                📢 Post as Announcement
+              </Text>
+              <Text style={s.announcementDesc}>
+                Notifies community members with a push notification
+              </Text>
+            </View>
+            <Switch
+              value={isAnnouncement}
+              onValueChange={setIsAnnouncement}
+              trackColor={{ false: colors.border, true: colors.primary }}
+              thumbColor="#fff"
+            />
+          </Pressable>
+        </View>
         {error ? <Text style={s.error}>{error}</Text> : null}
         <Pressable
           style={[s.submitBtn, (submitting || !title.trim() || !selectedCommunity) && s.submitBtnDisabled]}
@@ -211,7 +277,9 @@ export default function CreateScreen() {
           {submitting ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={s.submitText}>Publish Post</Text>
+            <Text style={s.submitText}>
+              {isAnnouncement ? "Publish Announcement" : "Publish Post"}
+            </Text>
           )}
         </Pressable>
       </ScrollView>
