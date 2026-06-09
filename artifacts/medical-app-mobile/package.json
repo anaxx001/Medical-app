@@ -33,12 +33,12 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.10",
     "expo-location": "~19.0.8",
+    "expo-notifications": "~0.29.14",
     "expo-router": "~6.0.17",
     "expo-splash-screen": "~31.0.12",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
     "expo-system-ui": "~6.0.9",
-    "expo-notifications": "~0.29.14",
     "expo-web-browser": "~15.0.10",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -58,6 +58,7 @@
   "dependencies": {
     "@expo-google-fonts/dm-sans": "^0.4.2",
     "@expo-google-fonts/outfit": "^0.4.3",
-    "@supabase/supabase-js": "^2.107.0"
+    "@supabase/supabase-js": "^2.107.0",
+    "expo-document-picker": "^56.0.4"
   }
 }

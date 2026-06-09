@@ -5,6 +5,7 @@ import React, { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import { createClient } from "@/lib/supabase";
+import { fileCategory, categoryIcon } from "@/lib/storage";
 import { Avatar } from "./Avatar";
 
 export interface Post {
@@ -142,6 +143,19 @@ export function PostCard({ post, currentUserId }: Props) {
       paddingHorizontal: 6,
       paddingVertical: 2,
     },
+    attachChip: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 5,
+      borderRadius: 6,
+      borderWidth: 1,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      marginTop: 6,
+      alignSelf: "flex-start",
+    },
+    attachIcon: { fontSize: 12 },
+    attachLabel: { fontSize: 11, fontFamily: "DMSans_400Regular" },
   });
 
   return (
@@ -179,6 +193,14 @@ export function PostCard({ post, currentUserId }: Props) {
       <Text style={s.title} numberOfLines={2}>{post.title}</Text>
       {post.content ? (
         <Text style={s.content} numberOfLines={3}>{post.content}</Text>
+      ) : null}
+      {post.file_url ? (
+        <View style={[s.attachChip, { backgroundColor: colors.secondary, borderColor: colors.border }]}>
+          <Text style={s.attachIcon}>{categoryIcon(fileCategory(post.file_type))}</Text>
+          <Text style={[s.attachLabel, { color: colors.foreground }]} numberOfLines={1}>
+            {fileCategory(post.file_type) === "image" ? "Image attached" : "File attached"}
+          </Text>
+        </View>
       ) : null}
 
       <View style={s.footer}>

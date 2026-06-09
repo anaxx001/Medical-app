@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Avatar } from "@/components/Avatar";
 import { PostCard, type Post } from "@/components/PostCard";
 import { PostCardSkeleton, CommentSkeleton } from "@/components/Skeleton";
+import { FileAttachment } from "@/components/FileAttachment";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
 import { createClient } from "@/lib/supabase";
@@ -202,6 +203,13 @@ export default function PostDetailScreen() {
                 <>
                   <View style={{ padding: 14 }}>
                     <PostCard post={post} currentUserId={user?.id} />
+                    {post.file_url ? (
+                      <FileAttachment
+                        url={post.file_url}
+                        mimeType={post.file_type}
+                        fileName={post.file_url.split("/").pop()}
+                      />
+                    ) : null}
                   </View>
                   <Text style={s.sectionLabel}>
                     {comments.length} Comment{comments.length !== 1 ? "s" : ""}

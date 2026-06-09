@@ -139,7 +139,6 @@ externalPort = 8000
 
 [[ports]]
 localPort = 8099
-externalPort = 8099
 
 [[ports]]
 localPort = 8100
@@ -152,3 +151,5 @@ externalPort = 3000
 [[ports]]
 localPort = 24106
 externalPort = 3001
+
+[nix]
