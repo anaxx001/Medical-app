@@ -1,0 +1,1 @@
+- [Gemini model in api-server](gemini-model.md) — gemini-1.5-flash was deprecated; use gemini-2.0-flash via @google/generative-ai in artifacts/api-server/src/routes/chat.ts

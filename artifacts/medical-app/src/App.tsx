@@ -13,7 +13,10 @@ import AdminPage from "@/pages/AdminPage";
 import SettingsPage from "@/pages/SettingsPage";
 import CommunityPage from "@/pages/CommunityPage";
 import CreatePostPage from "@/pages/CreatePostPage";
-import PlaceholderPage from "@/pages/PlaceholderPage";
+import FlashcardsPage from "@/pages/FlashcardsPage";
+import QuizPage from "@/pages/QuizPage";
+import NotesPage from "@/pages/NotesPage";
+import PastQuestionsPage from "@/pages/PastQuestionsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -37,18 +40,10 @@ function Router() {
       <Route path="/community/:slug" component={CommunityPage} />
       <Route path="/create" component={CreatePostPage} />
       <Route path="/create-post" component={CreatePostPage} />
-      <Route path="/flashcards">
-        {() => <PlaceholderPage title="Flashcards" emoji="📖" description="Flashcards for rapid concept review are coming soon. Study smarter, not harder." />}
-      </Route>
-      <Route path="/quiz">
-        {() => <PlaceholderPage title="Quiz Mode" emoji="🧠" description="Test your medical knowledge with interactive quizzes. Coming soon!" />}
-      </Route>
-      <Route path="/notes">
-        {() => <PlaceholderPage title="Study Notes" emoji="📝" description="Structured notes for every medical subject. Coming soon!" />}
-      </Route>
-      <Route path="/past-questions">
-        {() => <PlaceholderPage title="Past Questions" emoji="📋" description="Practice with real past exam questions. Coming soon!" />}
-      </Route>
+      <Route path="/flashcards" component={FlashcardsPage} />
+      <Route path="/quiz" component={QuizPage} />
+      <Route path="/notes" component={NotesPage} />
+      <Route path="/past-questions" component={PastQuestionsPage} />
       <Route component={NotFound} />
     </Switch>
   );

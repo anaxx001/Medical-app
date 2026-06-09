@@ -50,9 +50,9 @@ export default function DashboardPage() {
         </div>
 
         <div style={{ marginTop: "28px", background: "linear-gradient(135deg, rgba(45,135,200,0.08), rgba(61,190,122,0.06))", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "24px", textAlign: "center" }}>
-          <div style={{ fontSize: "32px", marginBottom: "10px" }}>🚀</div>
-          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", color: "var(--text)", marginBottom: "6px" }}>More features coming soon!</p>
-          <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>Quizzes, flashcards, and study notes are being built. Check back soon.</p>
+          <div style={{ fontSize: "32px", marginBottom: "10px" }}>🎓</div>
+          <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", color: "var(--text)", marginBottom: "6px" }}>Ready to study?</p>
+          <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>Flashcards, quizzes, notes, and past questions are all live. Pick a tool and get started.</p>
         </div>
       </div>
     </AppShell>
