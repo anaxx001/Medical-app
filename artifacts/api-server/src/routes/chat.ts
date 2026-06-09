@@ -20,7 +20,7 @@ router.post("/chat", async (req, res) => {
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash",
       systemInstruction: `You are MedAI, an expert AI assistant for Nigerian medical and health science students. 
 You help students studying Medicine, Radiography, Nursing, Anatomy, Pharmacology, Physiotherapy, Dentistry and related disciplines.
 You provide clear, accurate, educational medical content. 
