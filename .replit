@@ -153,3 +153,4 @@ localPort = 24106
 externalPort = 3001
 
 [nix]
+packages = ["zip", "z-lua", "unzipNLS"]
