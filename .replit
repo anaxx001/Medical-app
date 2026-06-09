@@ -102,8 +102,9 @@ PORT = "24106"
 BASE_PATH = "/medstudent-promo/"
 
 [agent]
-stack = "PNPM_WORKSPACE"
+stack = "BEST_EFFORT_FALLBACK"
 expertMode = true
+integrations = ["javascript_gemini_ai_integrations:2.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -154,3 +155,4 @@ externalPort = 3001
 
 [nix]
 packages = ["zip", "z-lua", "unzipNLS"]
+channel = "stable-25_05"
