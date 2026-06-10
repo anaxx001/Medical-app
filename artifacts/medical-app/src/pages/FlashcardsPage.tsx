@@ -129,7 +129,7 @@ export default function FlashcardsPage() {
     const ac = aiCards[aiIndex];
     return (
       <AppShell>
-        <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "680px", margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
@@ -199,7 +199,7 @@ export default function FlashcardsPage() {
   // ── Main Flashcards View ────────────────────────────────────────
   return (
     <AppShell>
-      <div style={{ maxWidth: "680px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "680px", margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "20px", gap: "12px", flexWrap: "wrap" }}>
           <div>

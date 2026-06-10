@@ -70,7 +70,7 @@ export default function QuizPage() {
   if (!started) {
     return (
       <AppShell>
-        <div style={{ maxWidth: "600px", margin: "0 auto" }}>
+        <div style={{ maxWidth: "600px", margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
           <div style={{ marginBottom: "24px" }}>
             <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "22px", color: "var(--text)", marginBottom: "4px", display: "flex", alignItems: "center", gap: "10px" }}>
               <BrainCircuit size={22} color="var(--green)" /> Quiz Mode
@@ -104,7 +104,7 @@ export default function QuizPage() {
     const grade = pct >= 80 ? { label: "Excellent!", color: "var(--green)", emoji: "🏆" } : pct >= 60 ? { label: "Good effort!", color: "var(--blue)", emoji: "👍" } : { label: "Keep studying!", color: "#F5A623", emoji: "📚" };
     return (
       <AppShell>
-        <div style={{ maxWidth: "520px", margin: "0 auto", textAlign: "center", padding: "40px 0" }}>
+        <div style={{ maxWidth: "520px", margin: "0 auto", textAlign: "center", padding: "40px 0", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: "56px", marginBottom: "16px" }}>{grade.emoji}</div>
           <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", color: "var(--text)", marginBottom: "8px" }}>Quiz Complete!</h2>
           <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: grade.color, marginBottom: "20px" }}>{grade.label}</p>
@@ -133,7 +133,7 @@ export default function QuizPage() {
 
   return (
     <AppShell>
-      <div style={{ maxWidth: "640px", margin: "0 auto" }}>
+      <div style={{ maxWidth: "640px", margin: "0 auto", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
