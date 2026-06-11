@@ -16,7 +16,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = getPrefs();
-    if (!saved) setShowOnboarding(true);
+    const isAuthPage = location === "/login" || location === "/signup";
+    if (!saved && !isAuthPage) setShowOnboarding(true);
     else setPrefs(saved);
     setLoaded(true);
   }, []);
@@ -33,13 +34,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isDashboard = location === "/";
-  const greeting = prefs ? getGreeting(prefs.profession).replace("Good day,", prefs.name ? `Good day, ${prefs.name} —` : "Good day,") : "Good day 👋";
+  const greeting = prefs
+    ? getGreeting(prefs.profession).replace(
+        "Good day,",
+        prefs.name ? `Good day, ${prefs.name} —` : "Good day,"
+      )
+    : "Good day 👋";
 
   if (!loaded) return null;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg)", position: "relative" }}>
-      {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
+    <div style={{
+      display: "flex",
+      minHeight: "100vh",
+      background: "var(--bg)",
+      position: "relative",
+    }}>
+      {showOnboarding && (
+        <OnboardingModal onComplete={handleOnboardingComplete} />
+      )}
 
       {/* Backdrop */}
       {sidebarOpen && (
@@ -64,7 +77,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         flexDirection: "column",
         minHeight: "100vh",
         width: "100%",
-        paddingBottom: "64px",
+        maxWidth: "100vw",
+        paddingBottom: "80px",
       }}>
 
         {/* Header */}
@@ -83,13 +97,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <button
               onClick={() => setSidebarOpen(true)}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "6px", color: "var(--text)" }}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "6px",
+                color: "var(--text)",
+              }}
             >
               <Menu size={22} />
             </button>
             {isDashboard && (
               <div>
-                <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", color: "var(--text)" }}>
+                <p style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: "15px",
+                  color: "var(--text)",
+                }}>
                   {greeting}
                 </p>
                 <p style={{ fontSize: "11px", color: "var(--text-light)" }}>
@@ -155,9 +180,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </main>
 
       {/* Bottom nav — pinned to bottom */}
-      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50 }}>
+      <div style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        zIndex: 50,
+        width: "100vw",
+      }}>
         <BottomNav />
       </div>
+
     </div>
   );
-          }
+}
