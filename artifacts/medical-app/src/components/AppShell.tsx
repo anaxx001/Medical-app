@@ -6,10 +6,12 @@ import BottomNav from "./BottomNav";
 import { Menu, Bell } from "lucide-react";
 import { getPrefs, getGreeting, UserPrefs } from "@/lib/userPrefs";
 import { createClient } from "@/lib/supabase";
+import { useTheme } from "@/context/ThemeContext";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const supabase = createClient();
+  const { darkMode } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [prefs, setPrefs] = useState<UserPrefs | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -168,7 +170,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       minHeight: "100vh",
       background: "var(--bg)",
       position: "relative",
-    }}>
+    }} className="dark:bg-slate-950">
       {showOnboarding && (
         <OnboardingModal onComplete={handleOnboardingComplete} />
       )}
@@ -212,7 +214,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           position: "sticky",
           top: 0,
           zIndex: 30,
-        }}>
+        }} className="dark:bg-slate-800 dark:border-slate-700">
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <button
               onClick={() => setSidebarOpen(true)}
@@ -223,6 +225,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 padding: "6px",
                 color: "var(--text)",
               }}
+              className="dark:text-slate-100"
             >
               <Menu size={22} />
             </button>
@@ -233,10 +236,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   fontWeight: 700,
                   fontSize: "15px",
                   color: "var(--text)",
-                }}>
+                }} className="dark:text-slate-100">
                   {greeting}
                 </p>
-                <p style={{ fontSize: "11px", color: "var(--text-light)" }}>
+                <p style={{ fontSize: "11px", color: "var(--text-light)" }} className="dark:text-slate-400">
                   Keep pushing — every page counts.
                 </p>
               </div>
@@ -259,6 +262,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 justifyContent: "center",
                 textDecoration: "none",
               }}
+              className="dark:text-slate-100"
             >
               <Bell size={22} />
               {unreadNotificationCount > 0 && (
@@ -278,7 +282,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   fontWeight: "700",
                   color: "white",
                   fontFamily: "var(--font-display)",
-                }}>
+                }} className="dark:border-slate-800">
                   {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
                 </span>
               )}
@@ -305,7 +309,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         {/* Page content with animation */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px" }}>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px" }} className="dark:bg-slate-950">
           <div style={{
             opacity: visible ? 1 : 0,
             transform: visible ? "translateY(0px)" : "translateY(12px)",
