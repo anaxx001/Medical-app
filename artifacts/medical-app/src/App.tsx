@@ -21,6 +21,7 @@ import FlashcardsPage from "@/pages/FlashcardsPage";
 import QuizPage from "@/pages/QuizPage";
 import NotesPage from "@/pages/NotesPage";
 import PastQuestionsPage from "@/pages/PastQuestionsPage";
+import NotificationsPage from "@/pages/NotificationsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -33,9 +34,27 @@ interface ProtectedRouteProps {
 
 function ProtectedRoute({ component: Component, isAuthenticated, isLoading }: ProtectedRouteProps) {
   if (isLoading) {
-    return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading...</div>;
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--bg)",
+      }}>
+        <div style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "50%",
+          border: "3px solid var(--border)",
+          borderTop: "3px solid #0D9488",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
-  
+
   if (!isAuthenticated) {
     return <Redirect to="/login" />;
   }
@@ -72,6 +91,9 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       </Route>
       <Route path="/messages">
         <ProtectedRoute component={MessagesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/notifications">
+        <ProtectedRoute component={NotificationsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/admin">
         <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
@@ -133,7 +155,6 @@ function AppContent() {
 
     checkAuth();
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setIsAuthenticated(!!session?.user);
     });
