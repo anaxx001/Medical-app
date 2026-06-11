@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { createClient } from "@/lib/supabase";
-import { useNavigate } from "wouter";
+import { useLocation } from "wouter";
 import {
   Settings,
   LogOut,
