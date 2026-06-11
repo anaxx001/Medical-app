@@ -5,9 +5,11 @@ import OnboardingModal from "./OnboardingModal";
 import BottomNav from "./BottomNav";
 import { Menu, Bell } from "lucide-react";
 import { getPrefs, getGreeting, UserPrefs } from "@/lib/userPrefs";
+import { createClient } from "@/lib/supabase";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const supabase = createClient();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [prefs, setPrefs] = useState<UserPrefs | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -15,11 +17,36 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const saved = getPrefs();
-    const isAuthPage = location === "/login" || location === "/signup";
-    if (!saved && !isAuthPage) setShowOnboarding(true);
-    else setPrefs(saved);
-    setLoaded(true);
+    async function checkAuthAndPrefs() {
+      try {
+        // Check if user has an active Supabase session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // If user is authenticated, skip onboarding
+        if (session?.user) {
+          setPrefs(getPrefs() || null);
+          setLoaded(true);
+          return;
+        }
+
+        // If no session, check for saved local prefs
+        const saved = getPrefs();
+        const isAuthPage = location === "/login" || location === "/signup";
+        
+        // Only show onboarding if no saved prefs AND not on auth page
+        if (!saved && !isAuthPage) {
+          setShowOnboarding(true);
+        } else {
+          setPrefs(saved);
+        }
+      } catch (err) {
+        console.error("Error checking auth status:", err);
+      } finally {
+        setLoaded(true);
+      }
+    }
+
+    checkAuthAndPrefs();
   }, []);
 
   useEffect(() => {
