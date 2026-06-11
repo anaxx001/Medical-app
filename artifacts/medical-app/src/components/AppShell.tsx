@@ -15,6 +15,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     async function checkAuthAndPrefs() {
@@ -47,6 +48,56 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
 
     checkAuthAndPrefs();
+  }, []);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    async function fetchUnreadCount() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("is_read", false);
+
+        if (!error && data) {
+          setUnreadNotificationCount(data.length);
+        }
+      } catch (err) {
+        console.error("Error fetching notification count:", err);
+      }
+    }
+
+    fetchUnreadCount();
+
+    // Set up real-time listener for notifications
+    const { data: { user } } = supabase.auth.getUser().then((result) => {
+      if (result.data?.user) {
+        const channel = supabase
+          .channel("notifications")
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "notifications",
+              filter: `user_id=eq.${result.data.user.id}`,
+            },
+            () => {
+              // Refetch count on any change
+              fetchUnreadCount();
+            }
+          )
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      }
+    });
   }, []);
 
   useEffect(() => {
@@ -153,26 +204,44 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           {/* Right side — bell + avatar */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <button style={{
-              position: "relative",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "6px",
-              color: "var(--text)",
-            }}>
+            <Link
+              href="/notifications"
+              style={{
+                position: "relative",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "6px",
+                color: "var(--text)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                textDecoration: "none",
+              }}
+            >
               <Bell size={22} />
-              <span style={{
-                position: "absolute",
-                top: "4px",
-                right: "4px",
-                width: "8px",
-                height: "8px",
-                borderRadius: "50%",
-                background: "#E8445A",
-                border: "2px solid var(--surface)",
-              }} />
-            </button>
+              {unreadNotificationCount > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: "2px",
+                  right: "2px",
+                  width: "18px",
+                  height: "18px",
+                  borderRadius: "50%",
+                  background: "#E8445A",
+                  border: "2px solid var(--surface)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "10px",
+                  fontWeight: "700",
+                  color: "white",
+                  fontFamily: "var(--font-display)",
+                }}>
+                  {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                </span>
+              )}
+            </Link>
 
             <Link
               href={prefs?.username ? `/profile/${prefs.username}` : "/login"}
