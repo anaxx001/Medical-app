@@ -101,7 +101,10 @@ export default function ProfilePage() {
         user_vote: null,
       })));
 
-      const totalVotes = (postsData || []).reduce((sum: number, p: any) => sum + (p.upvotes || 0), 0);
+      const totalVotes = (postsData || []).reduce(
+        (sum: number, p: any) => sum + (p.upvotes || 0),
+        0
+      );
       setTotalUpvotes(totalVotes);
 
       if (user?.id === profileData.id) {
@@ -181,7 +184,6 @@ export default function ProfilePage() {
           .eq("follower_id", user.id)
           .eq("following_id", profileData.id)
           .single();
-
         setIsFollowing(!!followData);
       }
 
@@ -198,7 +200,6 @@ export default function ProfilePage() {
 
   async function handleFollowToggle() {
     if (!currentUserId || !profile) return;
-
     if (isFollowing) {
       await supabase
         .from("followers")
@@ -222,9 +223,8 @@ export default function ProfilePage() {
     return (
       <AppShell>
         <div style={{ maxWidth: "820px", margin: "0 auto", padding: "20px" }}>
-          {/* Skeleton loader */}
           <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden" }}>
-            <div style={{ height: "200px", background: "var(--surface-2)", animation: "pulse 1.5s infinite" }} />
+            <div style={{ height: "200px", background: "var(--surface-2)" }} />
             <div style={{ padding: "20px 24px" }}>
               <div style={{ width: "100px", height: "100px", borderRadius: "50%", background: "var(--surface-2)", marginTop: "-60px", marginBottom: "16px" }} />
               <div style={{ width: "200px", height: "24px", background: "var(--surface-2)", borderRadius: "4px", marginBottom: "8px" }} />
@@ -250,10 +250,12 @@ export default function ProfilePage() {
 
   const tabs = [
     { id: "posts" as TabType, label: "Posts", count: posts.length, icon: <BookOpen size={14} /> },
-    ...(isOwn ? [
-      { id: "saved" as TabType, label: "Saved", count: savedPosts.length, icon: <Bookmark size={14} /> },
-      { id: "history" as TabType, label: "History", count: historyPosts.length, icon: <Clock size={14} /> },
-    ] : []),
+    ...(isOwn
+      ? [
+          { id: "saved" as TabType, label: "Saved", count: savedPosts.length, icon: <Bookmark size={14} /> },
+          { id: "history" as TabType, label: "History", count: historyPosts.length, icon: <Clock size={14} /> },
+        ]
+      : []),
     { id: "comments" as TabType, label: "Comments", count: comments.length, icon: <MessageCircle size={14} /> },
   ];
 
@@ -263,46 +265,43 @@ export default function ProfilePage() {
 
         {/* HEADER */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "var(--shadow)" }}>
+          <div style={{ height: "200px", background: "linear-gradient(135deg, #1E978A 0%, #1ABC9C 100%)" }} />
+          <div style={{ padding: "20px 24px", marginTop: "-80px" }}>
 
-          {/* Cover Banner */}
-          <div style={{
-            height: "200px",
-            background: "linear-gradient(135deg, #1E978A 0%, #1ABC9C 100%)",
-            position: "relative",
-          }} />
-
-          <div style={{ padding: "20px 24px", position: "relative", marginTop: "-80px" }}>
-
-            {/* Avatar + Action Button */}
             <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "16px" }}>
               <UserAvatar avatarUrl={profile.avatar_url} fullName={profile.full_name} size={120} />
               <div style={{ flex: 1, marginTop: "40px" }}>
                 {isOwn ? (
-                  <Link href="/settings" style={{
-                    display: "inline-flex", alignItems: "center", gap: "6px",
-                    padding: "8px 14px", borderRadius: "99px",
-                    border: "1px solid var(--border)", background: "var(--surface-2)",
-                    textDecoration: "none", color: "var(--text)",
-                    fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "12px",
-                  }}>
+                  <Link
+                    href="/settings"
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: "6px",
+                      padding: "8px 14px", borderRadius: "99px",
+                      border: "1px solid var(--border)", background: "var(--surface-2)",
+                      textDecoration: "none", color: "var(--text)",
+                      fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "12px",
+                    }}
+                  >
                     <Settings size={13} /> Edit Profile
                   </Link>
                 ) : (
-                  <button onClick={handleFollowToggle} style={{
-                    padding: "8px 20px", borderRadius: "99px",
-                    border: "1px solid var(--border)",
-                    background: isFollowing ? "var(--surface-2)" : "#1ABC9C",
-                    color: isFollowing ? "var(--text)" : "#fff",
-                    fontFamily: "var(--font-display)", fontWeight: 600,
-                    fontSize: "13px", cursor: "pointer", transition: "all 0.2s",
-                  }}>
+                  <button
+                    onClick={handleFollowToggle}
+                    style={{
+                      padding: "8px 20px", borderRadius: "99px",
+                      border: "1px solid var(--border)",
+                      background: isFollowing ? "var(--surface-2)" : "#1ABC9C",
+                      color: isFollowing ? "var(--text)" : "#fff",
+                      fontFamily: "var(--font-display)", fontWeight: 600,
+                      fontSize: "13px", cursor: "pointer",
+                    }}
+                  >
                     {isFollowing ? "Following" : "Follow"}
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Name + Username + Role */}
             <div style={{ marginTop: "24px", paddingBottom: "16px", borderBottom: "1px solid var(--border)" }}>
               <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", color: "var(--text)", margin: "0 0 4px 0" }}>
                 {profile.full_name}
@@ -324,7 +323,6 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* Institution + Profession */}
               <div style={{ display: "flex", gap: "16px", marginBottom: "8px", flexWrap: "wrap" }}>
                 {profile.institution && (
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -351,84 +349,64 @@ export default function ProfilePage() {
               )}
 
               {profile.bio && (
-                <p style={{ fontSize: "13.5px", color: "var(--text-muted)", fontFamily: "var(--font-body)", lineHeight: 1.6, marginTop: "12px", margin: 0 }}>
+                <p style={{ fontSize: "13.5px", color: "var(--text-muted)", fontFamily: "var(--font-body)", lineHeight: 1.6, margin: "12px 0 0 0" }}>
                   {profile.bio}
                 </p>
               )}
             </div>
 
-            {/* Followers / Following */}
             <div style={{ display: "flex", gap: "24px", paddingTop: "16px" }}>
-              <div style={{ textAlign: "left" }}>
+              <div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: "var(--text)" }}>
                   {followerCount}
                 </div>
-                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                  Followers
-                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>Followers</div>
               </div>
-              <div style={{ textAlign: "left" }}>
+              <div>
                 <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: "var(--text)" }}>
                   {followingCount}
                 </div>
-                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                  Following
-                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>Following</div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* STATS ROW */}
+        {/* STATS */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: "12px" }}>
-          {[
-            { value: posts.length, label: "Total Posts", color: "#1ABC9C" },
-            { value: totalUpvotes, label: "Total Upvotes", color: "#F97316" },
-            {
-              value: new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
-              label: "Member Since", color: "var(--text)", small: true
-            },
-          ].map((stat, i) => (
-            <div key={i} style={{
-              background: "var(--surface)", border: "1px solid var(--border)",
-              borderRadius: "var(--radius)", padding: "16px", textAlign: "center",
-            }}>
-              <div style={{
-                fontFamily: "var(--font-display)", fontWeight: 700,
-                fontSize: stat.small ? "14px" : "20px", color: stat.color,
-              }}>
-                {stat.value}
-              </div>
-              <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "4px" }}>
-                {stat.label}
-              </div>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px", textAlign: "center" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "20px", color: "#1ABC9C" }}>{posts.length}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "4px" }}>Total Posts</div>
+          </div>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px", textAlign: "center" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "20px", color: "#F97316" }}>{totalUpvotes}</div>
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "4px" }}>Total Upvotes</div>
+          </div>
+          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "16px", textAlign: "center" }}>
+            <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", color: "var(--text)" }}>
+              {new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
             </div>
-          ))}
+            <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "4px" }}>Member Since</div>
+          </div>
         </div>
 
         {/* TABS */}
-        <div style={{
-          display: "flex", gap: "4px",
-          borderBottom: "1px solid var(--border)",
-          overflowX: "auto",
-        }}>
+        <div style={{ display: "flex", gap: "4px", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
           {tabs.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               style={{
-                padding: "12px 16px",
-                border: "none",
+                padding: "12px 16px", border: "none",
                 borderBottom: tab === t.id ? "3px solid #1ABC9C" : "3px solid transparent",
                 background: "transparent",
                 color: tab === t.id ? "#1ABC9C" : "var(--text-muted)",
                 fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "14px",
                 cursor: "pointer", display: "flex", alignItems: "center",
-                gap: "6px", whiteSpace: "nowrap", transition: "all 0.2s",
+                gap: "6px", whiteSpace: "nowrap",
               }}
             >
-              {t.icon} {t.label}
-              <span style={{ fontSize: "11px", opacity: 0.7 }}>({t.count})</span>
+              {t.icon} {t.label} <span style={{ fontSize: "11px", opacity: 0.7 }}>({t.count})</span>
             </button>
           ))}
         </div>
@@ -436,81 +414,78 @@ export default function ProfilePage() {
         {/* TAB CONTENT */}
         <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
 
-          {/* POSTS TAB */}
           {tab === "posts" && (
             posts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-                <BookOpen size={32} color="var(--text-muted)" style={{ marginBottom: "12px" }} />
-                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                  No posts yet.
-                </p>
+                <BookOpen size={32} color="var(--text-muted)" />
+                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "12px" }}>No posts yet.</p>
               </div>
             ) : (
               posts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
             )
           )}
 
-          {/* SAVED TAB */}
           {tab === "saved" && (
             savedPosts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-                <Bookmark size={32} color="var(--text-muted)" style={{ marginBottom: "12px" }} />
-                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                  No saved posts yet.
-                </p>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "4px" }}>
-                  Bookmark posts to find them here later.
-                </p>
+                <Bookmark size={32} color="var(--text-muted)" />
+                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "12px" }}>No saved posts yet.</p>
               </div>
             ) : (
               savedPosts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
             )
           )}
 
-          {/* HISTORY TAB */}
           {tab === "history" && (
             historyPosts.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-                <Clock size={32} color="var(--text-muted)" style={{ marginBottom: "12px" }} />
-                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                  No history yet.
-                </p>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "4px" }}>
-                  Posts you view will appear here.
-                </p>
+                <Clock size={32} color="var(--text-muted)" />
+                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "12px" }}>No history yet.</p>
               </div>
             ) : (
               historyPosts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
             )
           )}
 
-          {/* COMMENTS TAB */}
           {tab === "comments" && (
             comments.length === 0 ? (
               <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-                <MessageCircle size={32} color="var(--text-muted)" style={{ marginBottom: "12px" }} />
-                <p style={{ fontSize: "14px", color: "var(--text)",
-                      fontFamily: "var(--font-body)", lineHeight: 1.6,
-                      margin: "0 0 8px 0",
-                    }}>
+                <MessageCircle size={32} color="var(--text-muted)" />
+                <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", marginTop: "12px" }}>No comments yet.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {comments.map(comment => (
+                  <div
+                    key={comment.id}
+                    onClick={() => { window.location.href = "/post/" + comment.post_id; }}
+                    style={{
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderLeft: "3px solid #1ABC9C",
+                      borderRadius: "var(--radius)",
+                      padding: "16px",
+                      cursor: "pointer",
+                      }}
+                  >
+                    <p style={{ fontSize: "14px", color: "var(--text)", fontFamily: "var(--font-body)", lineHeight: 1.6, margin: "0 0 8px 0" }}>
                       {comment.content}
                     </p>
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <MessageCircle size={12} color="var(--text-muted)" />
                       <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>
-                        {new Date(comment.created_at).toLocaleDateString("en-US", {
-                          month: "short", day: "numeric", year: "numeric"
-                        })}
+                        {new Date(comment.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                       </span>
                     </div>
                   </div>
-                <div style={{
-  cursor: "pointer",
-              ))
+                ))}
+              </div>
             )
           )}
 
+        </div>
       </div>
     </AppShell>
   );
 }
+      
