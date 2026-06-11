@@ -2,6 +2,7 @@ import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
+import { ThemeProvider } from "@/context/ThemeContext";
 import HomePage from "@/pages/HomePage";
 import ChatbotPage from "@/pages/ChatbotPage";
 import LoginPage from "@/pages/LoginPage";
@@ -142,9 +143,11 @@ function AppContent() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-        <AppContent />
-      </WouterRouter>
+      <ThemeProvider>
+        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+          <AppContent />
+        </WouterRouter>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
