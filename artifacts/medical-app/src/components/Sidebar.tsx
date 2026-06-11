@@ -14,6 +14,8 @@ import {
   HelpCircle,
   Lock,
   LogOut,
+  MessageSquare,
+  Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
@@ -22,6 +24,7 @@ interface UserProfile {
   id: string;
   username: string;
   full_name: string;
+  profession?: string;
   avatar_url?: string;
   followers_count?: number;
   following_count?: number;
@@ -57,7 +60,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         // Fetch user profile
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("id, username, full_name, avatar_url")
+          .select("id, username, full_name, profession, avatar_url")
           .eq("id", user.id)
           .single();
 
@@ -94,6 +97,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { href: "/saved", icon: Bookmark, label: "Saved Posts" },
     { href: "/history", icon: History, label: "History" },
     { href: "/create", icon: PenSquare, label: "Create Post" },
+    { href: "/chatbot", icon: Zap, label: "AI Chatbot" },
+    { href: "/groups", icon: Users, label: "Groups" },
   ];
 
   const isActive = (href: string) => location === href;
@@ -135,9 +140,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* TOP SECTION — User Profile */}
         <div style={{ padding: "20px 16px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: "var(--text)", margin: 0 }}>
-              MedStudent
-            </h2>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <img src="/logo.png" width="28" height="28" style={{ borderRadius: "8px" }} />
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: "var(--text)", margin: 0 }}>
+                MedStudent
+              </h2>
+            </div>
             <button
               onClick={onClose}
               style={{
@@ -221,6 +229,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 8px 0" }}>
                   u/{profile.username}
                 </p>
+                {profile.profession && (
+                  <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 8px 0", fontWeight: 500 }}>
+                    {profile.profession}
+                  </p>
+                )}
                 <div style={{ display: "flex", gap: "12px", fontSize: "12px" }}>
                   <div style={{ color: "var(--text-muted)" }}>
                     <span style={{ fontWeight: 600, color: "var(--text)" }}>0</span> Followers

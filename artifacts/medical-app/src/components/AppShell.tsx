@@ -18,6 +18,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [loaded, setLoaded] = useState(false);
   const [visible, setVisible] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [currentUserUsername, setCurrentUserUsername] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkAuthAndPrefs() {
@@ -28,6 +29,22 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         // If user is authenticated, skip onboarding
         if (session?.user) {
           setPrefs(getPrefs() || null);
+          
+          // Fetch current user's username from profiles
+          try {
+            const { data: profileData } = await supabase
+              .from("profiles")
+              .select("username")
+              .eq("id", session.user.id)
+              .single();
+            
+            if (profileData?.username) {
+              setCurrentUserUsername(profileData.username);
+            }
+          } catch (err) {
+            console.error("Error fetching username:", err);
+          }
+          
           setLoaded(true);
           return;
         }
@@ -154,11 +171,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)", fontSize: "14px" }}>
             Loading MedStudent...
           </p>
-          <style>{`
+          <style>{
+            `
             @keyframes spin {
               to { transform: rotate(360deg); }
             }
-          `}</style>
+          `}
+          </style>
         </div>
       </div>
     );
@@ -289,7 +308,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
 
             <Link
-              href={prefs?.username ? `/profile/${prefs.username}` : "/login"}
+              href={currentUserUsername ? `/profile/${currentUserUsername}` : "/login"}
               style={{
                 width: "38px",
                 height: "38px",

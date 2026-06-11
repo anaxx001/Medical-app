@@ -22,6 +22,7 @@ import QuizPage from "@/pages/QuizPage";
 import NotesPage from "@/pages/NotesPage";
 import PastQuestionsPage from "@/pages/PastQuestionsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
+import GroupsPage from "@/pages/GroupsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -94,6 +95,9 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       </Route>
       <Route path="/notifications">
         <ProtectedRoute component={NotificationsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/groups">
+        <ProtectedRoute component={GroupsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/admin">
         <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
