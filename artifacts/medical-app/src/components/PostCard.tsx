@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone } from "lucide-react";
+import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark, Flag, Copy, Heart } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 export interface Post {
@@ -40,6 +40,8 @@ export default function PostCard({ post, currentUserId }: Props) {
   const supabase = createClient();
   const [votes, setVotes] = useState(post.upvotes - post.downvotes);
   const [userVote, setUserVote] = useState<"up" | "down" | null>(post.user_vote || null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   async function handleVote(type: "up" | "down") {
     if (!currentUserId) return;
@@ -58,6 +60,22 @@ export default function PostCard({ post, currentUserId }: Props) {
     }
   }
 
+  async function handleSave() {
+    if (!currentUserId) return;
+    if (isSaved) {
+      await supabase.from("saved_posts").delete().match({ post_id: post.id, user_id: currentUserId });
+      setIsSaved(false);
+    } else {
+      await supabase.from("saved_posts").insert({ post_id: post.id, user_id: currentUserId });
+      setIsSaved(true);
+    }
+  }
+
+  async function handleCopyText() {
+    await navigator.clipboard.writeText(post.content || post.title);
+    setShowMenu(false);
+  }
+
   function timeAgo(date: string) {
     const diff = Date.now() - new Date(date).getTime();
     const m = Math.floor(diff / 60000);
@@ -73,6 +91,8 @@ export default function PostCard({ post, currentUserId }: Props) {
     return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   }
 
+  const isAuthor = currentUserId === post.author.id;
+
   return (
     <div style={{
       background: "var(--surface)",
@@ -81,64 +101,162 @@ export default function PostCard({ post, currentUserId }: Props) {
       boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
       overflow: "hidden",
       display: "flex",
+      flexDirection: "column",
       borderLeft: "3px solid #0D9488",
+      position: "relative",
     }}>
-      {/* Left Vote Rail */}
+      {/* Top bar with menu */}
       <div style={{
         display: "flex",
-        flexDirection: "column",
         alignItems: "center",
-        justifyContent: "flex-start",
-        padding: "12px 8px",
-        gap: "6px",
-        minWidth: "48px",
-        background: "var(--surface-2, rgba(0,0,0,0.02))",
+        justifyContent: "space-between",
+        padding: "8px 14px",
+        borderBottom: "1px solid var(--border)",
       }}>
+        <div style={{ flex: 1 }} />
         <button
-          onClick={() => handleVote("up")}
+          onClick={() => setShowMenu(!showMenu)}
           style={{
             background: "none",
             border: "none",
-            cursor: currentUserId ? "pointer" : "default",
-            padding: "4px",
+            cursor: "pointer",
+            padding: "4px 8px",
             borderRadius: "6px",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: userVote === "up" ? "#0D9488" : "var(--text-muted)",
-            opacity: currentUserId ? 1 : 0.5,
-            transition: "color 0.2s",
+            color: "var(--text-muted)",
+            transition: "background-color 0.2s",
           }}
         >
-          <ArrowUp size={16} strokeWidth={userVote === "up" ? 2.5 : 1.8} />
-        </button>
-        <span style={{
-          fontFamily: "var(--font-display)",
-          fontWeight: 700,
-          fontSize: "12px",
-          color: userVote === "up" ? "#0D9488" : userVote === "down" ? "#E8445A" : "var(--text)",
-        }}>
-          {votes}
-        </span>
-        <button
-          onClick={() => handleVote("down")}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: currentUserId ? "pointer" : "default",
-            padding: "4px",
-            borderRadius: "6px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: userVote === "down" ? "#E8445A" : "var(--text-muted)",
-            opacity: currentUserId ? 1 : 0.5,
-            transition: "color 0.2s",
-          }}
-        >
-          <ArrowDown size={16} strokeWidth={userVote === "down" ? 2.5 : 1.8} />
+          <MoreVertical size={16} />
         </button>
       </div>
+
+      {/* Three-dot menu */}
+      {showMenu && (
+        <div style={{
+          position: "absolute",
+          top: "32px",
+          right: "10px",
+          background: "var(--surface)",
+          border: "1px solid var(--border)",
+          borderRadius: "8px",
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          zIndex: 10,
+          minWidth: "180px",
+        }}>
+          {isAuthor ? (
+            <>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+                borderBottom: "1px solid var(--border)",
+              }} onClick={() => setShowMenu(false)}>
+                Edit post
+              </button>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "#E8445A",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+              }} onClick={() => setShowMenu(false)}>
+                Delete post
+              </button>
+            </>
+          ) : (
+            <>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+                borderBottom: "1px solid var(--border)",
+              }} onClick={() => setShowMenu(false)}>
+                Follow post
+              </button>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+                borderBottom: "1px solid var(--border)",
+              }} onClick={() => setShowMenu(false)}>
+                Share to
+              </button>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+                borderBottom: "1px solid var(--border)",
+              }} onClick={handleCopyText}>
+                Copy text
+              </button>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+                borderBottom: "1px solid var(--border)",
+              }} onClick={() => setShowMenu(false)}>
+                Hide post
+              </button>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "var(--text)",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+                borderBottom: "1px solid var(--border)",
+              }} onClick={() => setShowMenu(false)}>
+                Report
+              </button>
+              <button style={{
+                width: "100%",
+                padding: "10px 16px",
+                border: "none",
+                background: "transparent",
+                color: "#E8445A",
+                fontSize: "13px",
+                cursor: "pointer",
+                textAlign: "left",
+              }} onClick={() => setShowMenu(false)}>
+                Block account
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Main Content */}
       <div style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -237,6 +355,7 @@ export default function PostCard({ post, currentUserId }: Props) {
           gap: "8px",
           flexWrap: "wrap",
           fontSize: "12px",
+          marginBottom: "8px",
         }}>
           {/* Author Info */}
           <Link href={`/profile/${post.author.username}`} style={{
@@ -293,45 +412,120 @@ export default function PostCard({ post, currentUserId }: Props) {
           </span>
         </div>
 
-        {/* Comments and Share - Bottom Right */}
+        {/* Reddit-style Vote and Action Buttons */}
         <div style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
+          flexWrap: "wrap",
           marginTop: "8px",
-          justifyContent: "flex-start",
         }}>
+          {/* Upvote Button */}
+          <button
+            onClick={() => handleVote("up")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "6px 12px",
+              borderRadius: "20px",
+              border: `1px solid ${userVote === "up" ? "#FFA500" : "var(--border)"}`,
+              background: userVote === "up" ? "rgba(255, 165, 0, 0.1)" : "transparent",
+              color: userVote === "up" ? "#FFA500" : "var(--text-muted)",
+              fontSize: "12px",
+              fontFamily: "var(--font-display)",
+              fontWeight: 500,
+              cursor: currentUserId ? "pointer" : "default",
+              transition: "all 0.2s",
+            }}
+          >
+            <ArrowUp size={14} strokeWidth={userVote === "up" ? 2.5 : 1.8} />
+            {votes > 0 ? votes : "Vote"}
+          </button>
+
+          {/* Downvote Button */}
+          <button
+            onClick={() => handleVote("down")}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "6px 12px",
+              borderRadius: "20px",
+              border: `1px solid ${userVote === "down" ? "#0084FF" : "var(--border)"}`,
+              background: userVote === "down" ? "rgba(0, 132, 255, 0.1)" : "transparent",
+              color: userVote === "down" ? "#0084FF" : "var(--text-muted)",
+              fontSize: "12px",
+              fontFamily: "var(--font-display)",
+              fontWeight: 500,
+              cursor: currentUserId ? "pointer" : "default",
+              transition: "all 0.2s",
+            }}
+          >
+            <ArrowDown size={14} strokeWidth={userVote === "down" ? 2.5 : 1.8} />
+          </button>
+
+          {/* Comments Button */}
           <Link href={`/post/${post.id}`} style={{
             display: "flex",
             alignItems: "center",
             gap: "4px",
-            padding: "4px 8px",
-            borderRadius: "4px",
+            padding: "6px 12px",
+            borderRadius: "20px",
+            border: "1px solid var(--border)",
             background: "transparent",
-            border: "none",
             color: "var(--text-muted)",
             fontSize: "12px",
+            fontFamily: "var(--font-display)",
+            fontWeight: 500,
             textDecoration: "none",
             cursor: "pointer",
-            transition: "color 0.2s",
+            transition: "all 0.2s",
           }}>
             <MessageSquare size={14} />
             {post.comment_count || 0}
           </Link>
+
+          {/* Save/Bookmark Button */}
+          <button
+            onClick={handleSave}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              padding: "6px 12px",
+              borderRadius: "20px",
+              border: `1px solid ${isSaved ? "#0D9488" : "var(--border)"}`,
+              background: isSaved ? "rgba(13, 148, 136, 0.1)" : "transparent",
+              color: isSaved ? "#0D9488" : "var(--text-muted)",
+              fontSize: "12px",
+              fontFamily: "var(--font-display)",
+              fontWeight: 500,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            <Bookmark size={14} fill={isSaved ? "#0D9488" : "none"} />
+            Save
+          </button>
+
+          {/* Share Button */}
           <button
             onClick={() => navigator.share?.({ title: post.title, url: window.location.origin + `/post/${post.id}` })}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              padding: "4px 8px",
-              borderRadius: "4px",
+              padding: "6px 12px",
+              borderRadius: "20px",
+              border: "1px solid var(--border)",
               background: "transparent",
-              border: "none",
               color: "var(--text-muted)",
               fontSize: "12px",
+              fontFamily: "var(--font-display)",
+              fontWeight: 500,
               cursor: "pointer",
-              transition: "color 0.2s",
+              transition: "all 0.2s",
             }}
           >
             <Share2 size={14} />
