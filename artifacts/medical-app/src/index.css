@@ -16,6 +16,7 @@
   --bg: #F4F8FB;
   --surface: #FFFFFF;
   --surface-2: #F0F6FA;
+  --surface-hover: #F8FAFC;
   --border: #DDE8F0;
 
   --text: #0F1E2D;
@@ -29,6 +30,28 @@
 
   --font-display: 'Outfit', sans-serif;
   --font-body: 'DM Sans', sans-serif;
+}
+
+html.dark {
+  --blue: #5BA8E0;
+  --blue-light: #7DB8E8;
+  --blue-dark: #1A5F96;
+  --green: #6DD9A0;
+  --green-light: #7DB8E8;
+  --green-dark: #28935C;
+
+  --gradient: linear-gradient(135deg, #5BA8E0 0%, #6DD9A0 100%);
+  --gradient-soft: linear-gradient(135deg, #1E3A4A 0%, #1F4A38 100%);
+
+  --bg: #0F1E2D;
+  --surface: #1A2B3D;
+  --surface-2: #243545;
+  --surface-hover: #2D3F52;
+  --border: #3D5067;
+
+  --text: #F0F6FA;
+  --text-muted: #A8BAC8;
+  --text-light: #7A92A4;
 }
 
 * {
@@ -49,6 +72,7 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -73,6 +97,11 @@ h1, h2, h3, h4, h5, h6 {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+html.dark .glass {
+  background: rgba(26, 43, 61, 0.75);
+  border: 1px solid rgba(61, 80, 103, 0.6);
 }
 
 button, a, [role="button"] {
