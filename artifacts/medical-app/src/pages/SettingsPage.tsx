@@ -52,7 +52,7 @@ const APP_VERSION = "1.0.0";
 
 export default function SettingsPage() {
   const supabase = createClient();
-  const navigate = useNavigate();
+  const navigate = useLocation();
 
   // User settings
   const [user, setUser] = useState<UserSettings | null>(null);
