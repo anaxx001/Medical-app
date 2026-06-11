@@ -3,18 +3,34 @@ import AppShell from "@/components/AppShell";
 import PostCard, { Post } from "@/components/PostCard";
 import { createClient } from "@/lib/supabase";
 import { useParams, Link } from "wouter";
-import { Settings, MapPin, BookOpen } from "lucide-react";
+import { Settings, MapPin, BookOpen, Camera, Users, MessageSquare, Bookmark, Clock, TrendingUp } from "lucide-react";
 
 interface Profile {
   id: string;
   username: string;
   full_name: string;
   avatar_url?: string;
-  profession?: string;
+  cover_photo_url?: string;
   bio?: string;
   institution?: string;
+  course_programme?: string;
+  study_year?: string;
   role: string;
   created_at: string;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  post_id: string;
+  created_at: string;
+  post?: Post;
+}
+
+interface SavedPost {
+  id: string;
+  post_id: string;
+  post?: Post;
 }
 
 const roleColors: Record<string, { bg: string; color: string }> = {
@@ -33,6 +49,8 @@ const roleLabels: Record<string, string> = {
   student: "Student",
 };
 
+const tealGradient = "linear-gradient(135deg, #1E978A 0%, #1ABC9C 100%)";
+
 export default function ProfilePage() {
   const params = useParams<{ username: string }>();
   const username = params.username;
@@ -40,9 +58,16 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [historyPosts, setHistoryPosts] = useState<Post[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
-  const [tab, setTab] = useState<"posts" | "about">("posts");
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [totalUpvotes, setTotalUpvotes] = useState(0);
+  const [tab, setTab] = useState<"posts" | "saved" | "history" | "comments">("posts");
 
   useEffect(() => {
     async function fetchProfile() {
@@ -50,15 +75,20 @@ export default function ProfilePage() {
       const { data: { user } } = await supabase.auth.getUser();
       setCurrentUserId(user?.id);
 
+      // Fetch profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
         .eq("username", username)
         .single();
 
-      if (!profileData) { setLoading(false); return; }
+      if (!profileData) {
+        setLoading(false);
+        return;
+      }
       setProfile(profileData);
 
+      // Fetch user's posts
       const { data: postsData } = await supabase
         .from("posts")
         .select(`
@@ -70,7 +100,7 @@ export default function ProfilePage() {
         `)
         .eq("author_id", profileData.id)
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(50);
 
       setPosts(
         // @ts-ignore
@@ -80,6 +110,115 @@ export default function ProfilePage() {
           user_vote: null,
         }))
       );
+
+      // Calculate total upvotes
+      const totalVotes = (postsData || []).reduce((sum: number, p: any) => sum + (p.upvotes || 0), 0);
+      setTotalUpvotes(totalVotes);
+
+      // Fetch saved posts if viewing own profile
+      if (user?.id === profileData.id) {
+        const { data: saved } = await supabase
+          .from("saved_posts")
+          .select(`
+            id,
+            post:posts(
+              id, title, content, file_url, file_type,
+              is_announcement, is_pinned, upvotes, downvotes, created_at,
+              author:profiles!author_id(id, username, full_name, avatar_url, profession),
+              community:communities!community_id(id, name, slug, icon),
+              comment_count:comments(count)
+            )
+          `)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+
+        setSavedPosts(
+          // @ts-ignore
+          (saved || []).map((s: any) => ({
+            ...s.post,
+            comment_count: s.post?.comment_count?.[0]?.count || 0,
+            user_vote: null,
+          }))
+        );
+      }
+
+      // Fetch post history if viewing own profile
+      if (user?.id === profileData.id) {
+        const { data: history } = await supabase
+          .from("post_history")
+          .select(`
+            id,
+            post:posts(
+              id, title, content, file_url, file_type,
+              is_announcement, is_pinned, upvotes, downvotes, created_at,
+              author:profiles!author_id(id, username, full_name, avatar_url, profession),
+              community:communities!community_id(id, name, slug, icon),
+              comment_count:comments(count)
+            )
+          `)
+          .eq("user_id", user.id)
+          .order("viewed_at", { ascending: false })
+          .limit(50);
+
+        setHistoryPosts(
+          // @ts-ignore
+          (history || []).map((h: any) => ({
+            ...h.post,
+            comment_count: h.post?.comment_count?.[0]?.count || 0,
+            user_vote: null,
+          }))
+        );
+      }
+
+      // Fetch user's comments
+      const { data: commentsData } = await supabase
+        .from("comments")
+        .select(`
+          id,
+          content,
+          post_id,
+          created_at,
+          post:posts(
+            id, title, content, file_url, file_type,
+            is_announcement, is_pinned, upvotes, downvotes, created_at,
+            author:profiles!author_id(id, username, full_name, avatar_url, profession),
+            community:communities!community_id(id, name, slug, icon),
+            comment_count:comments(count)
+          )
+        `)
+        .eq("author_id", profileData.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      setComments(commentsData || []);
+
+      // Fetch follower/following counts
+      const { count: followers } = await supabase
+        .from("followers")
+        .select("*", { count: "exact", head: true })
+        .eq("following_id", profileData.id);
+
+      const { count: following } = await supabase
+        .from("followers")
+        .select("*", { count: "exact", head: true })
+        .eq("follower_id", profileData.id);
+
+      setFollowerCount(followers || 0);
+      setFollowingCount(following || 0);
+
+      // Check if current user is following this profile
+      if (user?.id && user.id !== profileData.id) {
+        const { data: followData } = await supabase
+          .from("followers")
+          .select("*")
+          .eq("follower_id", user.id)
+          .eq("following_id", profileData.id)
+          .single();
+
+        setIsFollowing(!!followData);
+      }
+
       setLoading(false);
     }
     fetchProfile();
@@ -89,90 +228,464 @@ export default function ProfilePage() {
     return name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "M";
   }
 
-  if (loading) return <AppShell><div style={{ maxWidth: "720px", margin: "0 auto" }}><p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)" }}>Loading profile...</p></div></AppShell>;
-  if (!profile) return <AppShell><div style={{ maxWidth: "720px", margin: "0 auto" }}><p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)" }}>User not found.</p></div></AppShell>;
+  async function handleFollowToggle() {
+    if (!currentUserId || !profile) return;
 
-  const isOwn = currentUserId === profile.id;
+    if (isFollowing) {
+      await supabase
+        .from("followers")
+        .delete()
+        .eq("follower_id", currentUserId)
+        .eq("following_id", profile.id);
+      setIsFollowing(false);
+      setFollowerCount(Math.max(0, followerCount - 1));
+    } else {
+      await supabase
+        .from("followers")
+        .insert({
+          follower_id: currentUserId,
+          following_id: profile.id,
+        });
+      setIsFollowing(true);
+      setFollowerCount(followerCount + 1);
+    }
+  }
+
+  const isOwn = currentUserId === profile?.id;
+
+  if (loading)
+    return (
+      <AppShell>
+        <div style={{ maxWidth: "820px", margin: "0 auto", padding: "20px" }}>
+          <p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)" }}>Loading profile...</p>
+        </div>
+      </AppShell>
+    );
+
+  if (!profile)
+    return (
+      <AppShell>
+        <div style={{ maxWidth: "820px", margin: "0 auto", padding: "20px" }}>
+          <p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)" }}>User not found.</p>
+        </div>
+      </AppShell>
+    );
 
   return (
     <AppShell>
-      <div style={{ maxWidth: "720px", margin: "0 auto" }}>
-        {/* Profile Header */}
-        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "24px", marginBottom: "20px", boxShadow: "var(--shadow)" }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "16px", marginBottom: "16px" }}>
-            <div style={{ width: "72px", height: "72px", borderRadius: "50%", background: "var(--gradient)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", color: "white", fontFamily: "var(--font-display)", fontWeight: 800, flexShrink: 0, overflow: "hidden" }}>
-              {profile.avatar_url ? <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" /> : getInitials(profile.full_name)}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "4px" }}>
-                <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "20px", color: "var(--text)" }}>{profile.full_name}</h1>
-                {profile.role && roleColors[profile.role] && (
-                  <span style={{ padding: "2px 8px", borderRadius: "99px", background: roleColors[profile.role].bg, color: roleColors[profile.role].color, fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "11px" }}>
-                    {roleLabels[profile.role] || profile.role}
-                  </span>
+      <div style={{ maxWidth: "820px", margin: "0 auto" }}>
+        {/* HEADER SECTION */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden", marginBottom: "20px", boxShadow: "var(--shadow)" }}>
+          {/* Cover Photo */}
+          <div
+            style={{
+              width: "100%",
+              height: "200px",
+              background: profile.cover_photo_url ? `url(${profile.cover_photo_url})` : tealGradient,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              position: "relative",
+            }}
+          >
+            {isOwn && (
+              <button
+                style={{
+                  position: "absolute",
+                  bottom: "10px",
+                  right: "10px",
+                  padding: "8px 12px",
+                  borderRadius: "6px",
+                  border: "none",
+                  background: "rgba(0, 0, 0, 0.6)",
+                  color: "#fff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  fontSize: "12px",
+                  fontFamily: "var(--font-body)",
+                }}
+              >
+                <Camera size={14} /> Edit Cover
+              </button>
+            )}
+          </div>
+
+          {/* Profile Info Container */}
+          <div style={{ padding: "0 24px 24px" }}>
+            {/* Avatar and Header Info */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "20px", marginBottom: "16px", marginTop: "-50px", position: "relative", zIndex: 1 }}>
+              {/* Avatar */}
+              <div
+                style={{
+                  width: "100px",
+                  height: "100px",
+                  borderRadius: "50%",
+                  background: profile.avatar_url ? "transparent" : tealGradient,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "32px",
+                  color: "#fff",
+                  fontWeight: 600,
+                  border: "4px solid var(--surface)",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  position: "relative",
+                }}
+              >
+                {profile.avatar_url ? (
+                  <img src={profile.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt={profile.full_name} />
+                ) : (
+                  <Users size={40} color="#fff" />
                 )}
               </div>
-              <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "6px" }}>u/{profile.username}</p>
-              {profile.profession && (
-                <div style={{ display: "flex", alignItems: "center", gap: "4px", marginBottom: "4px" }}>
-                  <BookOpen size={13} color="var(--blue)" />
-                  <span style={{ fontSize: "12.5px", color: "var(--blue)", fontFamily: "var(--font-body)" }}>{profile.profession}</span>
+
+              {/* Profile Header Info */}
+              <div style={{ flex: 1, minWidth: 0, paddingTop: "16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap", marginBottom: "8px" }}>
+                  <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "28px", color: "var(--text)", margin: 0 }}>
+                    {profile.full_name}
+                  </h1>
+                  {profile.role && roleColors[profile.role] && (
+                    <span
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: "99px",
+                        background: roleColors[profile.role].bg,
+                        color: roleColors[profile.role].color,
+                        fontFamily: "var(--font-display)",
+                        fontWeight: 600,
+                        fontSize: "11px",
+                      }}
+                    >
+                      {roleLabels[profile.role] || profile.role}
+                    </span>
+                  )}
                 </div>
-              )}
-              {profile.institution && (
-                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                  <MapPin size={13} color="var(--text-muted)" />
-                  <span style={{ fontSize: "12.5px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>{profile.institution}</span>
+
+                <p style={{ fontSize: "14px", color: "var(--text-muted)", margin: "0 0 10px 0", fontFamily: "var(--font-body)" }}>u/{profile.username}</p>
+
+                {/* Metadata */}
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", marginBottom: "12px" }}>
+                  {profile.institution && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <MapPin size={14} color="#1ABC9C" />
+                      <span style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--font-body)" }}>{profile.institution}</span>
+                    </div>
+                  )}
+                  {profile.course_programme && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                      <BookOpen size={14} color="#1ABC9C" />
+                      <span style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--font-body)" }}>
+                        {profile.course_programme}
+                      </span>
+                    </div>
+                  )}
+                  {profile.study_year && (
+                    <span style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--font-body)" }}>Year {profile.study_year}</span>
+                  )}
                 </div>
-              )}
+
+                {/* Bio */}
+                {profile.bio && (
+                  <p
+                    style={{
+                      fontSize: "13.5px",
+                      color: "var(--text-muted)",
+                      fontFamily: "var(--font-body)",
+                      lineHeight: 1.5,
+                      margin: "10px 0 0 0",
+                    }}
+                  >
+                    {profile.bio}
+                  </p>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", paddingTop: "16px" }}>
+                {isOwn ? (
+                  <Link
+                    href="/settings"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      padding: "10px 16px",
+                      borderRadius: "6px",
+                      border: "1px solid var(--border)",
+                      background: "var(--surface)",
+                      color: "var(--text)",
+                      textDecoration: "none",
+                      fontFamily: "var(--font-body)",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <Settings size={14} /> Edit Profile
+                  </Link>
+                ) : (
+                  <button
+                    onClick={handleFollowToggle}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                      padding: "10px 16px",
+                      borderRadius: "6px",
+                      border: isFollowing ? "1px solid var(--border)" : "none",
+                      background: isFollowing ? "var(--surface)" : tealGradient,
+                      color: isFollowing ? "var(--text)" : "#fff",
+                      fontFamily: "var(--font-body)",
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </button>
+                )}
+              </div>
             </div>
-            {isOwn && (
-              <Link href="/settings" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 14px", borderRadius: "99px", border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "12.5px" }}>
-                <Settings size={13} /> Edit
-              </Link>
-            )}
-          </div>
 
-          {profile.bio && <p style={{ fontSize: "13.5px", color: "var(--text-muted)", fontFamily: "var(--font-body)", lineHeight: 1.6, borderTop: "1px solid var(--border)", paddingTop: "14px" }}>{profile.bio}</p>}
+            {/* Follower/Following Counts */}
+            <div style={{ display: "flex", gap: "24px", marginBottom: "16px", paddingBottom: "16px", borderBottom: "1px solid var(--border)" }}>
+              <button
+                onClick={() => alert(`${profile.full_name} has ${followerCount} followers`)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: "var(--text)" }}>
+                  {followerCount}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>Followers</div>
+              </button>
+              <button
+                onClick={() => alert(`${profile.full_name} is following ${followingCount} users`)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textAlign: "left",
+                }}
+              >
+                <div style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "16px", color: "var(--text)" }}>
+                  {followingCount}
+                </div>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>Following</div>
+              </button>
+            </div>
+          </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
-          {(["posts", "about"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{ padding: "8px 16px", borderRadius: "99px", border: "none", background: tab === t ? "var(--gradient)" : "var(--surface)", color: tab === t ? "white" : "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", cursor: "pointer", textTransform: "capitalize" }}>
-              {t === "posts" ? `Posts (${posts.length})` : "About"}
-            </button>
-          ))}
+        {/* STATS ROW */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "16px",
+            marginBottom: "24px",
+          }}
+        >
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "16px",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" }}>
+              <TrendingUp size={18} color="#1ABC9C" />
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "18px", color: "var(--text)" }}>
+                {posts.length}
+              </span>
+            </div>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>Total Posts</p>
+          </div>
+
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "16px",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" }}>
+              <TrendingUp size={18} color="#1ABC9C" />
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "18px", color: "var(--text)" }}>
+                {totalUpvotes}
+              </span>
+            </div>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>Upvotes Received</p>
+          </div>
+
+          <div
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              padding: "16px",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "8px" }}>
+              <Clock size={18} color="#1ABC9C" />
+              <span style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", color: "var(--text)" }}>
+                {new Date(profile.created_at).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+              </span>
+            </div>
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>Member Since</p>
+          </div>
         </div>
 
-        {tab === "posts" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {posts.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "40px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-                <p style={{ fontSize: "14px", color: "var(--text-muted)" }}>No posts yet.</p>
-              </div>
-            ) : (
-              posts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
-            )}
-          </div>
-        )}
+        {/* TABS */}
+        <div style={{ display: "flex", gap: "8px", marginBottom: "20px", borderBottom: "1px solid var(--border)", paddingBottom: "0" }}>
+          {(["posts", "saved", "history", "comments"] as const).map(t => {
+            const tabLabels = {
+              posts: `Posts (${posts.length})`,
+              saved: `Saved (${savedPosts.length})`,
+              history: `History (${historyPosts.length})`,
+              comments: `Comments (${comments.length})`,
+            };
 
-        {tab === "about" && (
-          <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "20px" }}>
-            {[
-              { label: "Full Name", value: profile.full_name },
-              { label: "Username", value: `u/${profile.username}` },
-              { label: "Profession", value: profile.profession || "Not specified" },
-              { label: "Institution", value: profile.institution || "Not specified" },
-              { label: "Joined", value: new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", year: "numeric" }) },
-            ].map(({ label, value }) => (
-              <div key={label} style={{ display: "flex", gap: "12px", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-                <span style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", color: "var(--text-muted)", minWidth: "110px" }}>{label}</span>
-                <span style={{ fontSize: "13px", color: "var(--text)", fontFamily: "var(--font-body)" }}>{value}</span>
-              </div>
-            ))}
-          </div>
-        )}
+            const tabIcons = {
+              posts: null,
+              saved: <Bookmark size={14} />,
+              history: <Clock size={14} />,
+              comments: <MessageSquare size={14} />,
+            };
+
+            // Hide saved and history for non-own profiles
+            if ((t === "saved" || t === "history") && !isOwn) return null;
+
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                style={{
+                  padding: "12px 16px",
+                  borderRadius: "0",
+                  border: "none",
+                  borderBottom: tab === t ? "3px solid #1ABC9C" : "3px solid transparent",
+                  background: "transparent",
+                  color: tab === t ? "#1ABC9C" : "var(--text-muted)",
+                  fontFamily: "var(--font-display)",
+                  fontWeight: tab === t ? 700 : 600,
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+              >
+                {tabIcons[t]}
+                {tabLabels[t]}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* TAB CONTENT */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", minHeight: "200px" }}>
+          {tab === "posts" && (
+            <>
+              {posts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "60px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                  <TrendingUp size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
+                  <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>
+                    No posts yet.
+                  </p>
+                </div>
+              ) : (
+                posts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
+              )}
+            </>
+          )}
+
+          {tab === "saved" && (
+            <>
+              {savedPosts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "60px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                  <Bookmark size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
+                  <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>
+                    No saved posts yet.
+                  </p>
+                </div>
+              ) : (
+                savedPosts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
+              )}
+            </>
+          )}
+
+          {tab === "history" && (
+            <>
+              {historyPosts.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "60px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                  <Clock size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
+                  <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>
+                    No viewing history yet.
+                  </p>
+                </div>
+              ) : (
+                historyPosts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)
+              )}
+            </>
+          )}
+
+          {tab === "comments" && (
+            <>
+              {comments.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "60px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                  <MessageSquare size={32} color="var(--text-muted)" style={{ margin: "0 auto 12px" }} />
+                  <p style={{ fontSize: "14px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>
+                    No comments yet.
+                  </p>
+                </div>
+              ) : (
+                comments.map(comment => (
+                  <div
+                    key={comment.id}
+                    style={{
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius)",
+                      padding: "16px",
+                    }}
+                  >
+                    <div style={{ marginBottom: "12px" }}>
+                      <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: "0 0 6px 0" }}>
+                        On: <strong>{comment.post?.title || "Unknown Post"}</strong>
+                      </p>
+                      <p style={{ fontSize: "13px", color: "var(--text-muted)", fontFamily: "var(--font-body)", margin: 0 }}>
+                        {new Date(comment.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      </p>
+                    </div>
+                    <p style={{ fontSize: "13.5px", color: "var(--text)", fontFamily: "var(--font-body)", lineHeight: 1.6, margin: 0 }}>
+                      {comment.content}
+                    </p>
+                  </div>
+                ))
+              )}
+            </>
+          )}
+        </div>
       </div>
     </AppShell>
   );
