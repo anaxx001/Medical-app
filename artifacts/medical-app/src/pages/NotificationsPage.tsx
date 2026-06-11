@@ -263,7 +263,7 @@ export default function NotificationsPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "700px", margin: "0 auto" }}>
-        {/* Header */}
+        {/* Header with Notifications title and Mark all as read button */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "28px", color: "var(--text)", margin: 0 }}>
             Notifications
@@ -297,7 +297,7 @@ export default function NotificationsPage() {
           )}
         </div>
 
-        {/* Tabs */}
+        {/* Tabs for filtering: All, Mentions, Upvotes, Replies, System */}
         <div style={{ display: "flex", gap: "8px", marginBottom: "20px", overflowX: "auto", paddingBottom: "4px" }}>
           {tabs.map((tab) => (
             <button
@@ -334,7 +334,7 @@ export default function NotificationsPage() {
           ))}
         </div>
 
-        {/* Content */}
+        {/* Content: Loading, Empty State, or Notification Items */}
         {loading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {[1, 2, 3].map((i) => (
@@ -365,6 +365,7 @@ export default function NotificationsPage() {
               border: "1px solid var(--border)",
             }}
           >
+            {/* Bell icon emoji for empty state */}
             <div style={{ fontSize: "72px", marginBottom: "20px", opacity: 0.6 }}>🔔</div>
             <h2
               style={{
