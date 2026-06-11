@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark, Flag, Copy, Heart } from "lucide-react";
+import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 
 export interface Post {
@@ -99,167 +99,14 @@ export default function PostCard({ post, currentUserId }: Props) {
       borderRadius: "8px",
       border: "1px solid var(--border)",
       boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-      overflow: "hidden",
+      overflow: "visible",
       display: "flex",
       flexDirection: "column",
       borderLeft: "3px solid #0D9488",
       position: "relative",
     }}>
-      {/* Top bar with menu */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "8px 14px",
-        borderBottom: "1px solid var(--border)",
-      }}>
-        <div style={{ flex: 1 }} />
-        <button
-          onClick={() => setShowMenu(!showMenu)}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "4px 8px",
-            borderRadius: "6px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            color: "var(--text-muted)",
-            transition: "background-color 0.2s",
-          }}
-        >
-          <MoreVertical size={16} />
-        </button>
-      </div>
-
-      {/* Three-dot menu */}
-      {showMenu && (
-        <div style={{
-          position: "absolute",
-          top: "32px",
-          right: "10px",
-          background: "var(--surface)",
-          border: "1px solid var(--border)",
-          borderRadius: "8px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-          zIndex: 10,
-          minWidth: "180px",
-        }}>
-          {isAuthor ? (
-            <>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "var(--text)",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-                borderBottom: "1px solid var(--border)",
-              }} onClick={() => setShowMenu(false)}>
-                Edit post
-              </button>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "#E8445A",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-              }} onClick={() => setShowMenu(false)}>
-                Delete post
-              </button>
-            </>
-          ) : (
-            <>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "var(--text)",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-                borderBottom: "1px solid var(--border)",
-              }} onClick={() => setShowMenu(false)}>
-                Follow post
-              </button>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "var(--text)",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-                borderBottom: "1px solid var(--border)",
-              }} onClick={() => setShowMenu(false)}>
-                Share to
-              </button>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "var(--text)",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-                borderBottom: "1px solid var(--border)",
-              }} onClick={handleCopyText}>
-                Copy text
-              </button>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "var(--text)",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-                borderBottom: "1px solid var(--border)",
-              }} onClick={() => setShowMenu(false)}>
-                Hide post
-              </button>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "var(--text)",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-                borderBottom: "1px solid var(--border)",
-              }} onClick={() => setShowMenu(false)}>
-                Report
-              </button>
-              <button style={{
-                width: "100%",
-                padding: "10px 16px",
-                border: "none",
-                background: "transparent",
-                color: "#E8445A",
-                fontSize: "13px",
-                cursor: "pointer",
-                textAlign: "left",
-              }} onClick={() => setShowMenu(false)}>
-                Block account
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Main Content */}
       <div style={{ flex: 1, padding: "12px 14px", display: "flex", flexDirection: "column", minWidth: 0 }}>
+
         {/* Announcement/Pinned Badge */}
         {(post.is_announcement || post.is_pinned) && (
           <div style={{
@@ -276,33 +123,119 @@ export default function PostCard({ post, currentUserId }: Props) {
           </div>
         )}
 
-        {/* Community Name (Teal) */}
-        <Link href={`/c/${post.community.slug}`} style={{
+        {/* Community + Three Dot Menu Row */}
+        <div style={{
           display: "flex",
           alignItems: "center",
-          gap: "5px",
-          textDecoration: "none",
+          justifyContent: "space-between",
           marginBottom: "4px",
         }}>
-          <span style={{ fontSize: "13px" }}>{post.community.icon}</span>
-          <span style={{
-            fontFamily: "var(--font-display)",
-            fontWeight: 600,
-            fontSize: "12px",
-            color: "#0D9488",
+          <Link href={`/c/${post.community.slug}`} style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "5px",
+            textDecoration: "none",
           }}>
-            {post.community.name}
-          </span>
-        </Link>
+            <span style={{ fontSize: "13px" }}>{post.community.icon}</span>
+            <span style={{
+              fontFamily: "var(--font-display)",
+              fontWeight: 600,
+              fontSize: "12px",
+              color: "#0D9488",
+            }}>
+              {post.community.name}
+            </span>
+          </Link>
 
-        {/* Post Title (Bold) */}
+          {/* Three dot menu button */}
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: "4px",
+                borderRadius: "6px",
+                display: "flex",
+                alignItems: "center",
+                color: "var(--text-muted)",
+              }}
+            >
+              <MoreVertical size={16} />
+            </button>
+
+            {/* Dropdown Menu */}
+            {showMenu && (
+              <>
+                {/* Backdrop to close menu */}
+                <div
+                  onClick={() => setShowMenu(false)}
+                  style={{
+                    position: "fixed",
+                    inset: 0,
+                    zIndex: 98,
+                  }}
+                />
+                <div style={{
+                  position: "absolute",
+                  top: "28px",
+                  right: 0,
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  borderRadius: "10px",
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                  zIndex: 99,
+                  minWidth: "200px",
+                  overflow: "hidden",
+                }}>
+                  {isAuthor ? (
+                    <>
+                      <button style={menuItemStyle} onClick={() => setShowMenu(false)}>
+                        ✏️ &nbsp; Edit post
+                      </button>
+                      <button style={{ ...menuItemStyle, color: "#E8445A", borderTop: "1px solid var(--border)" }} onClick={() => setShowMenu(false)}>
+                        🗑️ &nbsp; Delete post
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button style={menuItemStyle} onClick={() => setShowMenu(false)}>
+                        🔔 &nbsp; Follow post
+                      </button>
+                      <button style={menuItemStyle} onClick={() => { handleSave(); setShowMenu(false); }}>
+                        🔖 &nbsp; {isSaved ? "Unsave" : "Save post"}
+                      </button>
+                      <button style={menuItemStyle} onClick={() => setShowMenu(false)}>
+                        ↗️ &nbsp; Share to
+                      </button>
+                      <button style={menuItemStyle} onClick={handleCopyText}>
+                        📋 &nbsp; Copy text
+                      </button>
+                      <button style={menuItemStyle} onClick={() => setShowMenu(false)}>
+                        🙈 &nbsp; Hide post
+                      </button>
+                      <button style={{ ...menuItemStyle, borderTop: "1px solid var(--border)" }} onClick={() => setShowMenu(false)}>
+                        🚩 &nbsp; Report
+                      </button>
+                      <button style={{ ...menuItemStyle, color: "#E8445A" }} onClick={() => setShowMenu(false)}>
+                        🚫 &nbsp; Block account
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Post Title */}
         <Link href={`/post/${post.id}`} style={{ textDecoration: "none" }}>
           <h3 style={{
             fontFamily: "var(--font-display)",
             fontWeight: 700,
             fontSize: "14px",
             color: "var(--text)",
-            marginBottom: "6px",
             margin: "0 0 6px 0",
             lineHeight: 1.4,
           }}>
@@ -310,14 +243,13 @@ export default function PostCard({ post, currentUserId }: Props) {
           </h3>
         </Link>
 
-        {/* Preview Text (2 lines) */}
+        {/* Preview Text */}
         {post.content && (
           <p style={{
             fontSize: "13px",
             color: "var(--text-muted)",
             fontFamily: "var(--font-body)",
             lineHeight: 1.5,
-            marginBottom: "8px",
             margin: "0 0 8px 0",
             display: "-webkit-box",
             WebkitLineClamp: 2,
@@ -347,17 +279,13 @@ export default function PostCard({ post, currentUserId }: Props) {
           </a>
         )}
 
-        {/* Bottom Row: Author Info + Actions */}
+        {/* Author Row */}
         <div style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: "8px",
-          flexWrap: "wrap",
-          fontSize: "12px",
-          marginBottom: "8px",
+          marginBottom: "10px",
         }}>
-          {/* Author Info */}
           <Link href={`/profile/${post.author.username}`} style={{
             display: "flex",
             alignItems: "center",
@@ -381,12 +309,7 @@ export default function PostCard({ post, currentUserId }: Props) {
                 ? <img src={post.author.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
                 : getInitials(post.author.full_name || post.author.username)}
             </div>
-            <span style={{
-              fontSize: "12px",
-              color: "var(--text-muted)",
-              fontFamily: "var(--font-display)",
-              fontWeight: 500,
-            }}>
+            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 500 }}>
               u/{post.author.username}
             </span>
             {post.author.profession && (
@@ -402,25 +325,21 @@ export default function PostCard({ post, currentUserId }: Props) {
               </span>
             )}
           </Link>
-
-          {/* Time Ago */}
-          <span style={{
-            fontSize: "11px",
-            color: "var(--text-light)",
-          }}>
+          <span style={{ fontSize: "11px", color: "var(--text-light)" }}>
             {timeAgo(post.created_at)}
           </span>
         </div>
 
-        {/* Reddit-style Vote and Action Buttons */}
+        {/* Action Buttons Row — Reddit style */}
         <div style={{
           display: "flex",
           alignItems: "center",
-          gap: "8px",
+          gap: "6px",
           flexWrap: "wrap",
-          marginTop: "8px",
+          paddingTop: "8px",
+          borderTop: "1px solid var(--border)",
         }}>
-          {/* Upvote Button */}
+          {/* Upvote */}
           <button
             onClick={() => handleVote("up")}
             style={{
@@ -429,12 +348,12 @@ export default function PostCard({ post, currentUserId }: Props) {
               gap: "4px",
               padding: "6px 12px",
               borderRadius: "20px",
-              border: `1px solid ${userVote === "up" ? "#FFA500" : "var(--border)"}`,
-              background: userVote === "up" ? "rgba(255, 165, 0, 0.1)" : "transparent",
-              color: userVote === "up" ? "#FFA500" : "var(--text-muted)",
+              border: `1.5px solid ${userVote === "up" ? "#F97316" : "var(--border)"}`,
+              background: userVote === "up" ? "rgba(249,115,22,0.1)" : "transparent",
+              color: userVote === "up" ? "#F97316" : "var(--text-muted)",
               fontSize: "12px",
               fontFamily: "var(--font-display)",
-              fontWeight: 500,
+              fontWeight: 600,
               cursor: currentUserId ? "pointer" : "default",
               transition: "all 0.2s",
             }}
@@ -443,21 +362,19 @@ export default function PostCard({ post, currentUserId }: Props) {
             {votes > 0 ? votes : "Vote"}
           </button>
 
-          {/* Downvote Button */}
+          {/* Downvote */}
           <button
             onClick={() => handleVote("down")}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "4px",
-              padding: "6px 12px",
+              padding: "6px 10px",
               borderRadius: "20px",
-              border: `1px solid ${userVote === "down" ? "#0084FF" : "var(--border)"}`,
-              background: userVote === "down" ? "rgba(0, 132, 255, 0.1)" : "transparent",
+              border: `1.5px solid ${userVote === "down" ? "#0084FF" : "var(--border)"}`,
+              background: userVote === "down" ? "rgba(0,132,255,0.1)" : "transparent",
               color: userVote === "down" ? "#0084FF" : "var(--text-muted)",
               fontSize: "12px",
-              fontFamily: "var(--font-display)",
-              fontWeight: 500,
               cursor: currentUserId ? "pointer" : "default",
               transition: "all 0.2s",
             }}
@@ -465,28 +382,27 @@ export default function PostCard({ post, currentUserId }: Props) {
             <ArrowDown size={14} strokeWidth={userVote === "down" ? 2.5 : 1.8} />
           </button>
 
-          {/* Comments Button */}
+          {/* Comments */}
           <Link href={`/post/${post.id}`} style={{
             display: "flex",
             alignItems: "center",
             gap: "4px",
             padding: "6px 12px",
             borderRadius: "20px",
-            border: "1px solid var(--border)",
+            border: "1.5px solid var(--border)",
             background: "transparent",
             color: "var(--text-muted)",
             fontSize: "12px",
             fontFamily: "var(--font-display)",
             fontWeight: 500,
             textDecoration: "none",
-            cursor: "pointer",
             transition: "all 0.2s",
           }}>
             <MessageSquare size={14} />
             {post.comment_count || 0}
           </Link>
 
-          {/* Save/Bookmark Button */}
+          {/* Save */}
           <button
             onClick={handleSave}
             style={{
@@ -495,8 +411,8 @@ export default function PostCard({ post, currentUserId }: Props) {
               gap: "4px",
               padding: "6px 12px",
               borderRadius: "20px",
-              border: `1px solid ${isSaved ? "#0D9488" : "var(--border)"}`,
-              background: isSaved ? "rgba(13, 148, 136, 0.1)" : "transparent",
+              border: `1.5px solid ${isSaved ? "#0D9488" : "var(--border)"}`,
+              background: isSaved ? "rgba(13,148,136,0.1)" : "transparent",
               color: isSaved ? "#0D9488" : "var(--text-muted)",
               fontSize: "12px",
               fontFamily: "var(--font-display)",
@@ -509,7 +425,7 @@ export default function PostCard({ post, currentUserId }: Props) {
             Save
           </button>
 
-          {/* Share Button */}
+          {/* Share */}
           <button
             onClick={() => navigator.share?.({ title: post.title, url: window.location.origin + `/post/${post.id}` })}
             style={{
@@ -518,7 +434,7 @@ export default function PostCard({ post, currentUserId }: Props) {
               gap: "4px",
               padding: "6px 12px",
               borderRadius: "20px",
-              border: "1px solid var(--border)",
+              border: "1.5px solid var(--border)",
               background: "transparent",
               color: "var(--text-muted)",
               fontSize: "12px",
@@ -536,3 +452,16 @@ export default function PostCard({ post, currentUserId }: Props) {
     </div>
   );
 }
+
+const menuItemStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "11px 16px",
+  border: "none",
+  background: "transparent",
+  color: "var(--text)",
+  fontSize: "13px",
+  cursor: "pointer",
+  textAlign: "left",
+  fontFamily: "var(--font-body)",
+  display: "block",
+};
