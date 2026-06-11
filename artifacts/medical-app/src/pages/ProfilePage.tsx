@@ -504,7 +504,8 @@ export default function ProfilePage() {
                       </span>
                     </div>
                   </div>
-                </Link>
+                <div key={comment.id} onClick={() => window.location.href = `/post/${comment.post_id}`} style={{ textDecoration: "none", cursor: "pointer" }}>
+  <div style={{
               ))
             )
           )}
