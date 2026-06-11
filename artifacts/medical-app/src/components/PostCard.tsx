@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import UserAvatar from "./UserAvatar";
 
 export interface Post {
   id: string;
@@ -85,10 +86,6 @@ export default function PostCard({ post, currentUserId }: Props) {
     if (h > 0) return `${h}h ago`;
     if (m > 0) return `${m}m ago`;
     return "just now";
-  }
-
-  function getInitials(name: string) {
-    return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   }
 
   const isAuthor = currentUserId === post.author.id;
@@ -292,23 +289,11 @@ export default function PostCard({ post, currentUserId }: Props) {
             gap: "6px",
             textDecoration: "none",
           }}>
-            <div style={{
-              width: "20px",
-              height: "20px",
-              borderRadius: "50%",
-              background: "var(--gradient)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "9px",
-              color: "white",
-              flexShrink: 0,
-              overflow: "hidden",
-            }}>
-              {post.author.avatar_url
-                ? <img src={post.author.avatar_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
-                : getInitials(post.author.full_name || post.author.username)}
-            </div>
+            <UserAvatar 
+              avatarUrl={post.author.avatar_url}
+              fullName={post.author.full_name}
+              size={20}
+            />
             <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 500 }}>
               u/{post.author.username}
             </span>
