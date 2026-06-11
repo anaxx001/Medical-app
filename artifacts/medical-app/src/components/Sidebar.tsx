@@ -62,13 +62,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         })}
 
         {(role === "admin" || role === "super_admin") && (
-          <Link href="/admin" onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "var(--radius-sm)", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: location === "/admin" ? 600 : 400, fontSize: "14.5px", color: location === "/admin" ? "white" : "#E8445A", background: location === "/admin" ? "linear-gradient(135deg, #E8445A, #F5A623)" : "rgba(232,68,90,0.06)", marginTop: "8px" }}>
+          <Link href="/admin" onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "var(--radius-sm)", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 400, fontSize: "14.5px", color: "var(--text-muted)", background: "transparent" }}>
             🛡️ Admin Panel
           </Link>
         )}
 
         {role === "moderator" && (
-          <Link href="/moderator" onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "var(--radius-sm)", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 400, fontSize: "14.5px", color: "var(--blue)", background: "rgba(45,135,200,0.06)", marginTop: "8px" }}>
+          <Link href="/moderator" onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 14px", borderRadius: "var(--radius-sm)", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 400, fontSize: "14.5px", color: "var(--text-muted)", background: "transparent" }}>
             🔰 Mod Panel
           </Link>
         )}
@@ -76,12 +76,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
       <div style={{ padding: "12px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "4px" }}>
         {username && (
-          <Link href={`/profile/${username}`} onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "var(--radius-sm)", textDecoration: "none", color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 500, fontSize: "13.5px", background: location.includes("/profile") ? "var(--surface-2)" : "transparent" }}>
+          <Link href={`/profile/${username}`} onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "var(--radius-sm)", textDecoration: "none", color: "var(--text-muted)", fontSize: "14px" }}>
             <UserCircle size={17} />
             My Profile
           </Link>
         )}
-        <Link href="/settings" onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "var(--radius-sm)", textDecoration: "none", color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 500, fontSize: "13.5px", background: location === "/settings" ? "var(--surface-2)" : "transparent" }}>
+        <Link href="/settings" onClick={onClose} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 12px", borderRadius: "var(--radius-sm)", textDecoration: "none", color: "var(--text-muted)", fontSize: "14px" }}>
           <Settings size={17} />
           Settings
         </Link>
