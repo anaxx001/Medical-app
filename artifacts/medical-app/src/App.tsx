@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { ThemeProvider } from "@/context/ThemeContext";
+import SplashScreen from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import ChatbotPage from "@/pages/ChatbotPage";
 import LoginPage from "@/pages/LoginPage";
@@ -113,6 +114,9 @@ function AppContent() {
   const supabase = createClient();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [splashDone, setSplashDone] = useState(
+    () => sessionStorage.getItem("splashShown") === "true"
+  );
 
   useEffect(() => {
     async function checkAuth() {
@@ -136,6 +140,17 @@ function AppContent() {
 
     return () => subscription?.unsubscribe();
   }, []);
+
+  if (!splashDone) {
+    return (
+      <SplashScreen
+        onComplete={() => {
+          sessionStorage.setItem("splashShown", "true");
+          setSplashDone(true);
+        }}
+      />
+    );
+  }
 
   return <Router isAuthenticated={isAuthenticated} isLoading={isLoading} />;
 }
