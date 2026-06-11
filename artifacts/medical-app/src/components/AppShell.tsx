@@ -50,54 +50,65 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     checkAuthAndPrefs();
   }, []);
 
-  // Fetch unread notification count
+  // Fetch unread notification count with proper real-time listener
   useEffect(() => {
-    async function fetchUnreadCount() {
+    let unsubscribe: (() => void) | null = null;
+
+    async function setupNotifications() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
+        // Fetch initial count
+        const { data } = await supabase
           .from("notifications")
           .select("id")
           .eq("user_id", user.id)
           .eq("is_read", false);
 
-        if (!error && data) {
+        if (data) {
           setUnreadNotificationCount(data.length);
         }
-      } catch (err) {
-        console.error("Error fetching notification count:", err);
-      }
-    }
 
-    fetchUnreadCount();
-
-    // Set up real-time listener for notifications
-    const { data: { user } } = supabase.auth.getUser().then((result) => {
-      if (result.data?.user) {
+        // Set up real-time listener
         const channel = supabase
-          .channel("notifications")
+          .channel(`notifications-${user.id}`)
           .on(
             "postgres_changes",
             {
               event: "*",
               schema: "public",
               table: "notifications",
-              filter: `user_id=eq.${result.data.user.id}`,
+              filter: `user_id=eq.${user.id}`,
             },
-            () => {
+            async () => {
               // Refetch count on any change
-              fetchUnreadCount();
+              const { data: updatedData } = await supabase
+                .from("notifications")
+                .select("id")
+                .eq("user_id", user.id)
+                .eq("is_read", false);
+
+              if (updatedData) {
+                setUnreadNotificationCount(updatedData.length);
+              }
             }
           )
           .subscribe();
 
-        return () => {
+        unsubscribe = () => {
           supabase.removeChannel(channel);
         };
+      } catch (err) {
+        console.error("Error setting up notifications:", err);
       }
-    });
+    }
+
+    setupNotifications();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -119,7 +130,37 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       )
     : "Good day 👋";
 
-  if (!loaded) return null;
+  // Show loading spinner instead of white screen
+  if (!loaded) {
+    return (
+      <div style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "100vh",
+        background: "var(--bg)",
+      }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px" }}>
+          <div style={{
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            border: "3px solid var(--border)",
+            borderTop: "3px solid var(--blue)",
+            animation: "spin 1s linear infinite",
+          }} />
+          <p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)", fontSize: "14px" }}>
+            Loading MedStudent...
+          </p>
+          <style>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
