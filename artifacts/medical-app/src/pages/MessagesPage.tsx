@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { useLocation } from "wouter";
-import { Search } from "lucide-react";
+import { Search, Send } from "lucide-react";
 import AppShell from "@/components/AppShell";
 
 type DM = {
@@ -13,6 +13,8 @@ type DM = {
   last_at: string;
   unread: boolean;
 };
+
+type Tab = "messages" | "requests" | "threads";
 
 function timeAgo(date: string) {
   const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -36,6 +38,7 @@ export default function MessagesPage() {
   const [dms, setDms] = useState<DM[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState<Tab>("messages");
 
   useEffect(() => {
     async function init() {
@@ -85,11 +88,44 @@ export default function MessagesPage() {
     d.other_name.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleCompose = () => {
+    navigate("/messages/new");
+  };
+
   return (
     <AppShell>
-      <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-        <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "22px", color: "var(--text)", marginBottom: "16px" }}>Messages</h1>
+      <div style={{ maxWidth: "600px", margin: "0 auto", paddingBottom: "100px" }}>
+        {/* Header */}
+        <div style={{ marginBottom: "20px" }}>
+          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "28px", color: "var(--text)", marginBottom: "16px" }}>Chat</h1>
 
+          {/* Tab Navigation */}
+          <div style={{ display: "flex", gap: "0px", borderBottom: "1px solid var(--border)", marginBottom: "16px" }}>
+            {(["messages", "requests", "threads"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: "12px 16px",
+                  border: "none",
+                  background: "transparent",
+                  fontFamily: "var(--font-body)",
+                  fontSize: "14px",
+                  fontWeight: activeTab === tab ? 600 : 500,
+                  color: activeTab === tab ? "var(--text)" : "var(--text-muted)",
+                  cursor: "pointer",
+                  borderBottom: activeTab === tab ? "2px solid var(--blue)" : "none",
+                  marginBottom: "-1px",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search Bar */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 14px", borderRadius: "99px", border: "1px solid var(--border)", background: "var(--surface)", marginBottom: "16px" }}>
           <Search size={16} color="var(--text-muted)" />
           <input
@@ -101,24 +137,40 @@ export default function MessagesPage() {
           />
         </div>
 
+        {/* Content */}
         {loading ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             {[1, 2, 3].map(i => <div key={i} style={{ height: "68px", borderRadius: "var(--radius)", background: "var(--surface)", border: "1px solid var(--border)", opacity: 0.6 }} />)}
           </div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "36px", marginBottom: "12px" }}>💬</div>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "15px", color: "var(--text-muted)" }}>
-              {dms.length === 0 ? "No messages yet" : "No results"}
+        ) : activeTab === "messages" && filtered.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", minHeight: "400px", textAlign: "center" }}>
+            <div style={{ fontSize: "80px", marginBottom: "20px", opacity: 0.7 }}>💬</div>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "20px", color: "var(--text)", marginBottom: "8px" }}>Welcome to chat!</h2>
+            <p style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: "24px", maxWidth: "300px" }}>
+              {dms.length === 0 ? "Start a conversation by sending a message to a user" : "No results found"}
             </p>
-            <p style={{ fontSize: "13px", color: "var(--text-light)", marginTop: "6px" }}>Messages from other users will appear here</p>
+          </div>
+        ) : activeTab === "requests" ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", minHeight: "400px", textAlign: "center" }}>
+            <div style={{ fontSize: "80px", marginBottom: "20px", opacity: 0.7 }}>📬</div>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "20px", color: "var(--text)", marginBottom: "8px" }}>No requests yet</h2>
+            <p style={{ fontSize: "14px", color: "var(--text-muted)", maxWidth: "300px" }}>Message requests from new contacts will appear here</p>
+          </div>
+        ) : activeTab === "threads" ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "60px 20px", minHeight: "400px", textAlign: "center" }}>
+            <div style={{ fontSize: "80px", marginBottom: "20px", opacity: 0.7 }}>🧵</div>
+            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "20px", color: "var(--text)", marginBottom: "8px" }}>No threads yet</h2>
+            <p style={{ fontSize: "14px", color: "var(--text-muted)", maxWidth: "300px" }}>Threaded conversations will appear here</p>
           </div>
         ) : (
           <div style={{ background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)", overflow: "hidden" }}>
             {filtered.map((dm, i) => (
               <div
                 key={dm.id}
-                style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 16px", cursor: "pointer", borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none", background: dm.unread ? "rgba(45,135,200,0.03)" : "transparent" }}
+                onClick={() => navigate(`/messages/${dm.other_user_id}`)}
+                style={{ display: "flex", alignItems: "center", gap: "12px", padding: "14px 16px", cursor: "pointer", borderBottom: i < filtered.length - 1 ? "1px solid var(--border)" : "none", backgroundColor: "var(--surface)", transition: "background-color 0.2s ease" }}
+                onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--surface-hover)")}
+                onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--surface)")}
               >
                 <Avatar name={dm.other_name} avatar={dm.other_avatar} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -134,6 +186,41 @@ export default function MessagesPage() {
           </div>
         )}
       </div>
+
+      {/* Floating Compose Button */}
+      <button
+        onClick={handleCompose}
+        style={{
+          position: "fixed",
+          bottom: "32px",
+          right: "32px",
+          width: "56px",
+          height: "56px",
+          borderRadius: "50%",
+          background: "#17a2b8",
+          border: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          boxShadow: "0 4px 12px rgba(23, 162, 184, 0.3)",
+          transition: "all 0.2s ease",
+          color: "white",
+          zIndex: 100,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = "#138496";
+          e.currentTarget.style.boxShadow = "0 6px 16px rgba(23, 162, 184, 0.4)";
+          e.currentTarget.style.transform = "scale(1.1)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = "#17a2b8";
+          e.currentTarget.style.boxShadow = "0 4px 12px rgba(23, 162, 184, 0.3)";
+          e.currentTarget.style.transform = "scale(1)";
+        }}
+      >
+        <Send size={24} />
+      </button>
     </AppShell>
   );
 }
