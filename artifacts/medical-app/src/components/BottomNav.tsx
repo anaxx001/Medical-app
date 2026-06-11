@@ -7,6 +7,7 @@ export default function BottomNav() {
   const [location] = useLocation();
   const supabase = createClient();
   const [username, setUsername] = useState<string | null>(null);
+  const [animatingLabel, setAnimatingLabel] = useState<string | null>(null);
 
   useEffect(() => {
     async function getLoggedUser() {
@@ -40,52 +41,78 @@ export default function BottomNav() {
     { href: username ? `/profile/${username}` : "/login", icon: User, label: "Profile", isActive: isProfile },
   ];
 
+  const handleNavClick = (label: string) => {
+    setAnimatingLabel(label);
+    setTimeout(() => setAnimatingLabel(null), 300);
+  };
+
   return (
-    <nav style={{
-      position: "fixed",
-      bottom: 0,
-      left: 0,
-      right: 0,
-      height: "56px",
-      background: "var(--surface)",
-      borderTop: "1px solid var(--border)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-around",
-      zIndex: 50,
-      width: "100vw",
-    }}>
-      {navItems.map(({ href, icon: Icon, label, isActive }) => (
-        <Link
-          key={label}
-          href={href}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: "4px",
-            textDecoration: "none",
-            padding: "8px 16px",
-            borderRadius: "8px",
-            color: isActive ? "#0D9488" : "var(--text-muted)",
-            fontSize: "11px",
-            fontFamily: "var(--font-display)",
-            fontWeight: isActive ? 600 : 400,
-            cursor: "pointer",
-            transition: "color 0.2s, background-color 0.2s",
-          }}
-        >
-          <Icon
-            size={20}
-            strokeWidth={isActive ? 2.5 : 1.8}
-            fill={isActive ? "#0D9488" : "none"}
+    <>
+      <style>{`
+        @keyframes navTap {
+          0% {
+            transform: scale(1);
+          }
+          50% {
+            transform: scale(1.2);
+          }
+          100% {
+            transform: scale(1);
+          }
+        }
+
+        .nav-tap-animate {
+          animation: navTap 0.3s ease-in-out;
+        }
+      `}</style>
+      <nav style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: "56px",
+        background: "var(--surface)",
+        borderTop: "1px solid var(--border)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-around",
+        zIndex: 50,
+        width: "100vw",
+      }}>
+        {navItems.map(({ href, icon: Icon, label, isActive }) => (
+          <Link
+            key={label}
+            href={href}
+            onClick={() => handleNavClick(label)}
             style={{
-              transition: "all 0.2s",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "4px",
+              textDecoration: "none",
+              padding: "8px 16px",
+              borderRadius: "8px",
+              color: isActive ? "#0D9488" : "var(--text-muted)",
+              fontSize: "11px",
+              fontFamily: "var(--font-display)",
+              fontWeight: isActive ? 600 : 400,
+              cursor: "pointer",
+              transition: "color 0.2s, background-color 0.2s",
             }}
-          />
-          <span>{label}</span>
-        </Link>
-      ))}
-    </nav>
+          >
+            <Icon
+              size={20}
+              strokeWidth={isActive ? 2.5 : 1.8}
+              fill={isActive ? "#0D9488" : "none"}
+              className={animatingLabel === label ? "nav-tap-animate" : ""}
+              style={{
+                transition: "all 0.2s",
+              }}
+            />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
+    </>
   );
 }
