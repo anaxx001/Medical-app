@@ -39,15 +39,6 @@
     "@radix-ui/react-toggle-group": "^1.1.3",
     "@radix-ui/react-tooltip": "^1.2.0",
     "@tailwindcss/typography": "^0.5.15",
-
-    "@tailwindcss/vite": "catalog:",
-    "@tanstack/react-query": "catalog:",
-    "@types/node": "catalog:",
-    "@types/react": "catalog:",
-    "@types/react-dom": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
-    "class-variance-authority": "catalog:",
-    "clsx": "catalog:",
     "@tailwindcss/vite": "^4.1.4",
     "@tanstack/react-query": "^5.62.7",
     "@types/node": "^22.10.5",
@@ -56,7 +47,6 @@
     "@vitejs/plugin-react": "^4.3.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-
     "cmdk": "^1.1.1",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.6.0",
