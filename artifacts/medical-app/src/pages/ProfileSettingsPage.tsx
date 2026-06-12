@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { createClient } from "@/lib/supabase";
 import { useLocation } from "wouter";
-import { Save, Lock, LogOut } from "lucide-react";
+import { Save, Lock, LogOut, Upload, X } from "lucide-react";
 import { savePrefs, Profession } from "@/lib/userPrefs";
 
 const professions: Profession[] = [
@@ -10,7 +10,7 @@ const professions: Profession[] = [
   "Pharmacist", "Physiotherapist", "Dentist", "Other",
 ];
 
-type Tab = "profile" | "profession" | "password";
+type Tab = "profile" | "images" | "profession" | "password";
 
 export default function ProfileSettingsPage() {
   const supabase = createClient();
@@ -31,6 +31,15 @@ export default function ProfileSettingsPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // NEW: Image upload states
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string>("");
+  const [currentCoverUrl, setCurrentCoverUrl] = useState<string>("");
+  const [uploadingImages, setUploadingImages] = useState(false);
+
   useEffect(() => {
     async function loadProfile() {
       const { data: { user } } = await supabase.auth.getUser();
@@ -49,6 +58,11 @@ export default function ProfileSettingsPage() {
         setBio(data.bio || "");
         setInstitution(data.institution || "");
         setProfession(data.profession || "Other");
+        // NEW: Load existing images
+        setCurrentAvatarUrl(data.avatar_url || "");
+        setCurrentCoverUrl(data.cover_url || "");
+        setAvatarPreview(data.avatar_url || null);
+        setCoverPreview(data.cover_url || null);
       }
       setLoading(false);
     }
@@ -62,6 +76,123 @@ export default function ProfileSettingsPage() {
       return () => clearTimeout(t);
     }
   }, [success, error]);
+
+  // NEW: Handle avatar file selection
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      setError("Avatar must be less than 5MB");
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Only JPEG, PNG, or WebP images allowed");
+      return;
+    }
+
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // NEW: Handle cover file selection
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      setError("Cover image must be less than 5MB");
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError("Only JPEG, PNG, or WebP images allowed");
+      return;
+    }
+
+    setCoverFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setCoverPreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // NEW: Upload images to Supabase Storage
+  async function uploadImages() {
+    if (!avatarFile && !coverFile) {
+      setError("Please select at least one image");
+      return;
+    }
+
+    setUploadingImages(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      let newAvatarUrl = currentAvatarUrl;
+      let newCoverUrl = currentCoverUrl;
+
+      // Upload avatar
+      if (avatarFile) {
+        const fileName = `avatars/${userId}-${Date.now()}.${avatarFile.type.split('/')[1]}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(fileName, avatarFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrl } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(fileName);
+
+        newAvatarUrl = publicUrl.publicUrl;
+      }
+
+      // Upload cover
+      if (coverFile) {
+        const fileName = `covers/${userId}-${Date.now()}.${coverFile.type.split('/')[1]}`;
+        const { error: uploadError } = await supabase.storage
+          .from("covers")
+          .upload(fileName, coverFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrl } = supabase.storage
+          .from("covers")
+          .getPublicUrl(fileName);
+
+        newCoverUrl = publicUrl.publicUrl;
+      }
+
+      // Update profile
+      const updateData: any = {};
+      if (avatarFile) updateData.avatar_url = newAvatarUrl;
+      if (coverFile) updateData.cover_url = newCoverUrl;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update(updateData)
+        .eq("id", userId);
+
+      if (updateError) throw updateError;
+
+      setCurrentAvatarUrl(newAvatarUrl);
+      setCurrentCoverUrl(newCoverUrl);
+      setAvatarFile(null);
+      setCoverFile(null);
+      setSuccess("Images uploaded successfully!");
+    } catch (err: any) {
+      setError(err.message || "Failed to upload images");
+    } finally {
+      setUploadingImages(false);
+    }
+  }
 
   async function saveProfile() {
     setSaving(true);
@@ -140,8 +271,8 @@ export default function ProfileSettingsPage() {
         </h1>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: "6px", marginBottom: "24px" }}>
-          {(["profile", "profession", "password"] as Tab[]).map(t => (
+        <div style={{ display: "flex", gap: "6px", marginBottom: "24px", flexWrap: "wrap" }}>
+          {(["profile", "images", "profession", "password"] as Tab[]).map(t => (
             <button
               key={t}
               onClick={() => { setTab(t); setSuccess(""); setError(""); }}
@@ -158,7 +289,7 @@ export default function ProfileSettingsPage() {
                 textTransform: "capitalize",
               }}
             >
-              {t}
+              {t === "images" ? "🖼️ Images" : t}
             </button>
           ))}
         </div>
@@ -240,6 +371,176 @@ export default function ProfileSettingsPage() {
               >
                 <Save size={15} />
                 {saving ? "Saving..." : "Save Changes"}
+              </button>
+            </>
+          )}
+
+          {/* NEW: IMAGES TAB */}
+          {tab === "images" && (
+            <>
+              <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>
+                Upload your profile picture and cover image. Max 5MB each.
+              </p>
+
+              {/* Avatar Upload */}
+              <div style={{ marginBottom: "24px" }}>
+                <label style={{ display: "block", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", color: "var(--text)", marginBottom: "12px" }}>
+                  Profile Picture
+                </label>
+                <div style={{
+                  position: "relative",
+                  width: "120px",
+                  height: "120px",
+                  borderRadius: "50%",
+                  border: "2px dashed var(--border)",
+                  background: "var(--surface-2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  marginBottom: "12px",
+                }}>
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="avatar preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <Upload size={32} color="var(--text-muted)" />
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleAvatarSelect}
+                  style={{ display: "none" }}
+                  id="avatar-input"
+                />
+                <label
+                  htmlFor="avatar-input"
+                  style={{
+                    display: "inline-block",
+                    padding: "8px 16px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface-2)",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                    color: "var(--text)",
+                  }}
+                >
+                  Choose Image
+                </label>
+                {avatarFile && (
+                  <button
+                    onClick={() => { setAvatarFile(null); setAvatarPreview(currentAvatarUrl); }}
+                    style={{
+                      marginLeft: "8px",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: "var(--radius-sm)",
+                      background: "#FEE2E2",
+                      color: "#DC2626",
+                      cursor: "pointer",
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                    }}
+                  >
+                    <X size={14} style={{ display: "inline", marginRight: "4px" }} />
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Cover Upload */}
+              <div style={{ marginBottom: "24px" }}>
+                <label style={{ display: "block", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", color: "var(--text)", marginBottom: "12px" }}>
+                  Cover Image
+                </label>
+                <div style={{
+                  position: "relative",
+                  width: "100%",
+                  height: "150px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "2px dashed var(--border)",
+                  background: "var(--surface-2)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                  marginBottom: "12px",
+                }}>
+                  {coverPreview ? (
+                    <img src={coverPreview} alt="cover preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <Upload size={32} color="var(--text-muted)" />
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleCoverSelect}
+                  style={{ display: "none" }}
+                  id="cover-input"
+                />
+                <label
+                  htmlFor="cover-input"
+                  style={{
+                    display: "inline-block",
+                    padding: "8px 16px",
+                    borderRadius: "var(--radius-sm)",
+                    border: "1px solid var(--border)",
+                    background: "var(--surface-2)",
+                    cursor: "pointer",
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                    color: "var(--text)",
+                  }}
+                >
+                  Choose Image
+                </label>
+                {coverFile && (
+                  <button
+                    onClick={() => { setCoverFile(null); setCoverPreview(currentCoverUrl); }}
+                    style={{
+                      marginLeft: "8px",
+                      padding: "8px 12px",
+                      border: "none",
+                      borderRadius: "var(--radius-sm)",
+                      background: "#FEE2E2",
+                      color: "#DC2626",
+                      cursor: "pointer",
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 600,
+                      fontSize: "12px",
+                    }}
+                  >
+                    <X size={14} style={{ display: "inline", marginRight: "4px" }} />
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={uploadImages}
+                disabled={uploadingImages || (!avatarFile && !coverFile)}
+                style={{
+                  display: "flex", alignItems: "center", gap: "8px",
+                  padding: "12px 20px",
+                  borderRadius: "var(--radius-sm)",
+                  border: "none",
+                  background: "var(--gradient)",
+                  color: "white",
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: "14px",
+                  cursor: uploadingImages ? "not-allowed" : "pointer",
+                  opacity: uploadingImages ? 0.6 : 1,
+                }}
+              >
+                <Upload size={15} />
+                {uploadingImages ? "Uploading..." : "Upload Images"}
               </button>
             </>
           )}
