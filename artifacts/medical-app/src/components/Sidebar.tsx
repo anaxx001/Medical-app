@@ -49,8 +49,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [communities, setCommunities] = useState<Community[]>([]);
   const [onlineStatus, setOnlineStatus] = useState(true);
   const [loading, setLoading] = useState(true);
-  const { theme, toggleTheme } = useTheme();
-  const darkMode = theme === "dark";
+  const { darkMode, toggleDarkMode } = useTheme();
 
   useEffect(() => {
     async function loadUserData() {
@@ -324,7 +323,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             Settings
           </Link>
 
-          <button onClick={toggleTheme} style={navLinkStyle(false)}>
+          <button onClick={toggleDarkMode} style={navLinkStyle(false)}>
             {darkMode ? <Sun size={18} strokeWidth={2} /> : <Moon size={18} strokeWidth={2} />}
             {darkMode ? "Light Mode" : "Dark Mode"}
           </button>
