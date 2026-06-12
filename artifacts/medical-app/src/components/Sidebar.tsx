@@ -27,7 +27,7 @@ interface UserProfile {
   full_name: string;
   profession?: string;
   avatar_url?: string;
-  is_admin?: boolean;
+  role?: string;
 }
 
 interface Community {
@@ -59,7 +59,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
         const { data: profileData } = await supabase
           .from("profiles")
-          .select("id, username, full_name, profession, avatar_url, is_admin")
+          .select("id, username, full_name, profession, avatar_url, role")
           .eq("id", user.id)
           .single();
 
@@ -273,7 +273,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             ))}
 
             {/* Admin Panel — only if admin */}
-            {profile?.is_admin && (
+            {(profile?.role === "super_admin" || profile?.role === "admin") && (
               <Link href="/admin" onClick={onClose} style={{ ...navLinkStyle(isActive("/admin")), color: isActive("/admin") ? "#0D9488" : "#F97316" }}>
                 <ShieldCheck size={18} strokeWidth={2} style={{ flexShrink: 0 }} />
                 Admin Panel
