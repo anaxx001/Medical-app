@@ -25,6 +25,8 @@ import PastQuestionsPage from "@/pages/PastQuestionsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import NewsPage from "@/pages/NewsPage";
 import SavedPostsPage from "@/pages/SavedPostsPage";
+import DiscoverCommunitiesPage from "@/pages/DiscoverCommunitiesPage";
+import StartCommunityPage from "@/pages/StartCommunityPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -121,6 +123,12 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       </Route>
       <Route path="/community/:slug">
         <ProtectedRoute component={CommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/communities/discover">
+        <ProtectedRoute component={DiscoverCommunitiesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/communities/create">
+        <ProtectedRoute component={StartCommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/create">
         <ProtectedRoute component={CreatePostPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
