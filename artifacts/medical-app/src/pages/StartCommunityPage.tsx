@@ -1,7 +1,5 @@
-"use client";
-
 import { useEffect, useState, FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useLocation } from "wouter";
 import { createClient } from "@/lib/supabase";
 
 type Category =
@@ -30,7 +28,7 @@ const categories: Category[] = [
 ];
 
 export default function StartCommunityPage() {
-  const router = useRouter();
+  const [, setLocation] = useLocation();
   const supabase = createClient();
 
   const [loading, setLoading] = useState(false);
@@ -51,7 +49,7 @@ export default function StartCommunityPage() {
       } = await supabase.auth.getSession();
 
       if (!session?.user) {
-        router.replace("/login");
+        setLocation("/login");
         return;
       }
 
@@ -59,7 +57,7 @@ export default function StartCommunityPage() {
     }
 
     checkAuth();
-  }, [router, supabase]);
+  }, [setLocation, supabase]);
 
   const validate = () => {
     const nextErrors: FormErrors = {};
@@ -109,7 +107,7 @@ export default function StartCommunityPage() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/login");
+        setLocation("/login");
         return;
       }
 
@@ -141,7 +139,7 @@ export default function StartCommunityPage() {
         throw error;
       }
 
-      router.push(`/community/${name}`);
+      setLocation(`/community/${name}`);
     } catch (error: any) {
       setErrors({
         submit:
@@ -345,4 +343,4 @@ export default function StartCommunityPage() {
       </div>
     </div>
   );
-}
+              }
