@@ -21,6 +21,7 @@ import CreatePostPage from "@/pages/CreatePostPage";
 import FlashcardsPage from "@/pages/FlashcardsPage";
 import QuizPage from "@/pages/QuizPage";
 import NotesPage from "@/pages/NotesPage";
+import MaterialsPage from "@/pages/MaterialsPage";
 import PastQuestionsPage from "@/pages/PastQuestionsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
 import NewsPage from "@/pages/NewsPage";
@@ -70,12 +71,10 @@ function ProtectedRoute({ component: Component, isAuthenticated, isLoading }: Pr
 function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLoading: boolean }) {
   return (
     <Switch>
-      {/* Public routes */}
       <Route path="/login" component={LoginPage} />
       <Route path="/signup" component={SignupPage} />
       <Route path="/forgot-password" component={ForgotPasswordPage} />
 
-      {/* Protected routes */}
       <Route path="/">
         <ProtectedRoute component={HomePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
@@ -145,11 +144,13 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       <Route path="/notes">
         <ProtectedRoute component={NotesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
+      <Route path="/materials">
+        <ProtectedRoute component={MaterialsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
       <Route path="/past-questions">
         <ProtectedRoute component={PastQuestionsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
 
-      {/* 404 fallback */}
       <Route component={NotFound} />
     </Switch>
   );
