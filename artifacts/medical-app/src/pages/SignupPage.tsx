@@ -125,7 +125,7 @@ export default function SignupPage() {
                     <button
                       key={p}
                       onClick={() => setProfession(p)}
-                      style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: `2px solid ${isSelected ? "var(--blue)" : "var(--border)"}`​, background: isSelected ? "rgba(45, 135, 200, 0.05)" : "transparent", cursor: "pointer", transition: "all 0.2s ease" }}
+                      style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: `2px solid ${isSelected ? "var(--blue)" : "var(--border)"}`, background: isSelected ? "rgba(45, 135, 200, 0.05)" : "transparent", cursor: "pointer", transition: "all 0.2s ease" }}
                     >
                       <span style={{ fontSize: "20px" }}>{icons[p]}</span>
                       <span style={{ fontFamily: "var(--font-display)", fontWeight: isSelected ? 700 : 500, fontSize: "13px", color: isSelected ? "var(--blue-dark)" : "var(--text)" }}>{p}</span>
