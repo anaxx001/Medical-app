@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Home, Users, PenSquare, MessageCircle, User } from "lucide-react";
+import { Home, Newspaper, PenSquare, MessageCircle, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 
@@ -29,13 +29,14 @@ export default function BottomNav() {
   }, []);
 
   const isHome = location === "/" || location === "/feed" || location === "/dashboard";
+  const isNews = location === "/news";
   const isCreate = location === "/create";
   const isMessages = location === "/messages";
   const isProfile = username ? location === `/profile/${username}` : false;
 
   const navItems = [
     { href: "/", icon: Home, label: "Home", isActive: isHome },
-    { href: "/groups", icon: Users, label: "Groups", isActive: location.startsWith("/c/") },
+    { href: "/news", icon: Newspaper, label: "News", isActive: isNews },
     { href: "/create", icon: PenSquare, label: "Create", isActive: isCreate },
     { href: "/messages", icon: MessageCircle, label: "Messages", isActive: isMessages },
     { href: username ? `/profile/${username}` : "/login", icon: User, label: "Profile", isActive: isProfile },
@@ -50,17 +51,10 @@ export default function BottomNav() {
     <>
       <style>{`
         @keyframes navTap {
-          0% {
-            transform: scale(1);
-          }
-          50% {
-            transform: scale(1.2);
-          }
-          100% {
-            transform: scale(1);
-          }
+          0% { transform: scale(1); }
+          50% { transform: scale(1.2); }
+          100% { transform: scale(1); }
         }
-
         .nav-tap-animate {
           animation: navTap 0.3s ease-in-out;
         }
@@ -105,9 +99,7 @@ export default function BottomNav() {
               strokeWidth={isActive ? 2.5 : 1.8}
               fill={isActive ? "#0D9488" : "none"}
               className={animatingLabel === label ? "nav-tap-animate" : ""}
-              style={{
-                transition: "all 0.2s",
-              }}
+              style={{ transition: "all 0.2s" }}
             />
             <span>{label}</span>
           </Link>
