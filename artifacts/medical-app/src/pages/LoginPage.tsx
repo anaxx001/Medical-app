@@ -33,8 +33,12 @@ export default function LoginPage() {
     <div style={{ minHeight: "100vh", background: "var(--gradient-soft)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", fontFamily: "var(--font-body)" }}>
       <div style={{ width: "100%", maxWidth: "420px" }}>
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <div style={{ width: "52px", height: "52px", borderRadius: "14px", background: "var(--gradient)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", margin: "0 auto 12px" }}>🩺</div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", background: "var(--gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>MedStudent</h1>
+          <img
+            src="/logo.png"
+            alt="MedStudent"
+            style={{ width: "80px", height: "80px", borderRadius: "20px", marginBottom: "12px" }}
+          />
+          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", background: "var(--gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", margin: "0" }}>MedStudent</h1>
           <p style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>Your Nigerian health community</p>
         </div>
 
@@ -50,7 +54,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)", outline: "none", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text)", boxSizing: "border-box" }}
             />
           </div>
 
@@ -62,7 +66,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-              style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)", outline: "none", boxSizing: "border-box" }}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text)", boxSizing: "border-box" }}
             />
           </div>
 
@@ -81,7 +85,7 @@ export default function LoginPage() {
           <button
             onClick={handleLogin}
             disabled={loading}
-            style={{ width: "100%", padding: "13px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--gradient)", color: "white", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 4px 14px rgba(45,135,200,0.3)", opacity: loading ? 0.8 : 1, marginBottom: "16px" }}
+            style={{ width: "100%", padding: "13px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--gradient)", color: "white", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}
           >
             {loading ? "Logging in..." : "Log In →"}
           </button>

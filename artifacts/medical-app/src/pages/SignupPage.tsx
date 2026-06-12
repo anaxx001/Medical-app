@@ -56,8 +56,12 @@ export default function SignupPage() {
     <div style={{ minHeight: "100vh", background: "var(--gradient-soft)", display: "flex", alignItems: "center", justifyContent: "center", padding: "20px", fontFamily: "var(--font-body)" }}>
       <div style={{ width: "100%", maxWidth: "460px" }}>
         <div style={{ textAlign: "center", marginBottom: "28px" }}>
-          <div style={{ width: "52px", height: "52px", borderRadius: "14px", background: "var(--gradient)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", margin: "0 auto 12px" }}>🩺</div>
-          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", background: "var(--gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>MedStudent</h1>
+          <img
+            src="/logo.png"
+            alt="MedStudent"
+            style={{ width: "80px", height: "80px", borderRadius: "20px", marginBottom: "12px" }}
+          />
+          <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", background: "var(--gradient)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", margin: "0" }}>MedStudent</h1>
           <p style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>Your Nigerian health community</p>
         </div>
 
@@ -86,7 +90,7 @@ export default function SignupPage() {
                     placeholder={placeholder}
                     value={value}
                     onChange={(e) => setter(e.target.value)}
-                    style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "14px", color: "var(--text)", outline: "none", boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text)", boxSizing: "border-box" }}
                   />
                 </div>
               ))}
@@ -97,12 +101,12 @@ export default function SignupPage() {
                   setError("");
                   setStep(2);
                 }}
-                style={{ width: "100%", padding: "13px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--gradient)", color: "white", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", cursor: "pointer", boxShadow: "0 4px 14px rgba(45,135,200,0.3)", marginBottom: "16px" }}
+                style={{ width: "100%", padding: "13px", borderRadius: "var(--radius-sm)", border: "none", background: "var(--gradient)", color: "white", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}
               >
                 Continue →
               </button>
 
-              {error && <p style={{ fontSize: "13px", color: "#E8445A", textAlign: "center", background: "#FFF0F2", padding: "10px", borderRadius: "var(--radius-sm)" }}>{error}</p>}
+              {error && <p style={{ fontSize: "13px", color: "#E8445A", textAlign: "center", background: "#FFF0F2", padding: "10px", borderRadius: "var(--radius-sm)", marginTop: "14px" }}>{error}</p>}
 
               <p style={{ textAlign: "center", fontSize: "13px", color: "var(--text-muted)", marginTop: "16px" }}>
                 Already have an account?{" "}
@@ -121,7 +125,7 @@ export default function SignupPage() {
                     <button
                       key={p}
                       onClick={() => setProfession(p)}
-                      style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: `2px solid ${isSelected ? "var(--blue)" : "var(--border)"}`, background: isSelected ? "var(--gradient-soft)" : "var(--surface-2)", cursor: "pointer", textAlign: "left", transition: "all 0.15s ease" }}
+                      style={{ display: "flex", alignItems: "center", gap: "10px", padding: "12px 14px", borderRadius: "var(--radius-sm)", border: `2px solid ${isSelected ? "var(--blue)" : "var(--border)"}`​, background: isSelected ? "rgba(45, 135, 200, 0.05)" : "transparent", cursor: "pointer", transition: "all 0.2s ease" }}
                     >
                       <span style={{ fontSize: "20px" }}>{icons[p]}</span>
                       <span style={{ fontFamily: "var(--font-display)", fontWeight: isSelected ? 700 : 500, fontSize: "13px", color: isSelected ? "var(--blue-dark)" : "var(--text)" }}>{p}</span>
@@ -133,13 +137,13 @@ export default function SignupPage() {
               {error && <p style={{ fontSize: "13px", color: "#E8445A", marginBottom: "14px", textAlign: "center", background: "#FFF0F2", padding: "10px", borderRadius: "var(--radius-sm)" }}>{error}</p>}
 
               <div style={{ display: "flex", gap: "10px" }}>
-                <button onClick={() => setStep(1)} style={{ flex: 1, padding: "13px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "15px", cursor: "pointer" }}>
+                <button onClick={() => setStep(1)} style={{ flex: 1, padding: "13px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "transparent", color: "var(--text)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", cursor: "pointer" }}>
                   Back
                 </button>
                 <button
                   onClick={handleSignup}
                   disabled={!profession || loading}
-                  style={{ flex: 2, padding: "13px", borderRadius: "var(--radius-sm)", border: "none", background: profession ? "var(--gradient)" : "var(--border)", color: profession ? "white" : "var(--text-light)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", cursor: profession ? "pointer" : "not-allowed", boxShadow: profession ? "0 4px 14px rgba(45,135,200,0.3)" : "none", opacity: loading ? 0.8 : 1 }}
+                  style={{ flex: 2, padding: "13px", borderRadius: "var(--radius-sm)", border: "none", background: profession ? "var(--gradient)" : "var(--border)", color: profession ? "white" : "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", cursor: profession ? "pointer" : "not-allowed", opacity: loading ? 0.7 : 1 }}
                 >
                   {loading ? "Creating..." : "Join MedStudent →"}
                 </button>
