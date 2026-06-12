@@ -1,591 +1,217 @@
-import { useState, useEffect } from "react";
-import { createClient } from "@/lib/supabase";
-import { useLocation } from "wouter";
-import { Search, Send, X, UserSearch } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
+import { Link } from "wouter";
+import {
+  BookOpen, BrainCircuit, FileText, ClipboardList,
+  MessageSquareText, Flame, Trophy, Clock, TrendingUp,
+  ChevronRight, Zap
+} from "lucide-react";
+import { createClient } from "@/lib/supabase";
 
-type DM = {
-  id: string;
-  other_user_id: string;
-  other_name: string;
-  other_avatar: string | null;
-  last_message: string;
-  last_at: string;
-  unread: boolean;
-};
+const featureCards = [
+  { href: "/flashcards", icon: BookOpen, label: "Flashcards", description: "Review key concepts fast", color: "#0D9488", bg: "#F0FDFA" },
+  { href: "/quiz", icon: BrainCircuit, label: "Quiz", description: "Test your knowledge", color: "#7C3AED", bg: "#F5F3FF" },
+  { href: "/notes", icon: FileText, label: "Notes", description: "Structured study notes", color: "#D97706", bg: "#FFFBEB" },
+  { href: "/past-questions", icon: ClipboardList, label: "Past Questions", description: "Practice exam questions", color: "#DC2626", bg: "#FEF2F2" },
+  { href: "/chatbot", icon: MessageSquareText, label: "AI Chatbot", description: "Ask anything medical", color: "#0891B2", bg: "#ECFEFF" },
+];
 
-type Tab = "messages" | "requests" | "threads";
+const days = ["M", "T", "W", "T", "F", "S", "S"];
 
-function timeAgo(date: string) {
-  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return new Date(date).toLocaleDateString();
-}
-
-function Avatar({ name, avatar, size = 44 }: { name: string; avatar: string | null; size?: number }) {
-  return (
-    <div style={{
-      width: size,
-      height: size,
-      borderRadius: "50%",
-      flexShrink: 0,
-      background: "var(--gradient)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: size * 0.36,
-      color: "white",
-      fontFamily: "var(--font-display)",
-      fontWeight: 700,
-      overflow: "hidden",
-    }}>
-      {avatar
-        ? <img src={avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
-        : name?.[0]?.toUpperCase() || "M"}
-    </div>
-  );
-}
-
-function ComposeModal({ onClose, onSelect }: { onClose: () => void; onSelect: (userId: string) => void }) {
+export default function DashboardPage() {
   const supabase = createClient();
-  const [query, setQuery] = useState("");
-  const [results, setResults] = useState<any[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [dayStreak, setDayStreak] = useState(0);
+  const [points, setPoints] = useState(0);
+  const [studyTime, setStudyTime] = useState(0);
+  const [progress, setProgress] = useState(0);
+  const [userName, setUserName] = useState("");
+  const [profession, setProfession] = useState("");
+  const [animating, setAnimating] = useState(false);
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
-    const timeout = setTimeout(async () => {
-      setSearching(true);
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username, full_name, avatar_url, profession")
-        .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
-        .limit(10);
-      setResults(data || []);
-      setSearching(false);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [query]);
+    async function loadData() {
+      try {
+        const raw = window.localStorage.getItem("dashboardStats");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setDayStreak(Number(parsed.dayStreak) || 0);
+          setPoints(Number(parsed.points) || 0);
+          setStudyTime(Number(parsed.studyTime) || 0);
+          setProgress(Number(parsed.progress) || 0);
+        }
+      } catch (e) {
+        console.warn("Failed to load dashboardStats:", e);
+      }
+
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, username, profession")
+            .eq("id", user.id)
+            .single();
+          if (profile) {
+            setUserName(profile.full_name || profile.username || "");
+            setProfession(profile.profession || "");
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to load profile:", e);
+      }
+
+      setTimeout(() => setAnimating(true), 100);
+    }
+    loadData();
+  }, []);
+
+  const stats = [
+    { icon: Flame, label: "Day Streak", value: dayStreak, suffix: "", color: "#F97316", bg: "#FFF7ED" },
+    { icon: Trophy, label: "Points", value: points, suffix: "", color: "#7C3AED", bg: "#F5F3FF" },
+    { icon: Clock, label: "Study Time", value: studyTime, suffix: "hrs", color: "#0D9488", bg: "#F0FDFA" },
+    { icon: TrendingUp, label: "Progress", value: progress, suffix: "%", color: "#059669", bg: "#ECFDF5" },
+  ];
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.5)",
-          zIndex: 200,
-          backdropFilter: "blur(4px)",
-        }}
-      />
-      {/* Modal */}
-      <div style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: "var(--surface)",
-        borderRadius: "20px 20px 0 0",
-        zIndex: 201,
-        padding: "20px 16px",
-        maxHeight: "80vh",
-        display: "flex",
-        flexDirection: "column",
-        boxShadow: "0 -8px 40px rgba(0,0,0,0.2)",
-      }}>
-        {/* Handle bar */}
-        <div style={{
-          width: "40px",
-          height: "4px",
-          background: "var(--border)",
-          borderRadius: "99px",
-          margin: "0 auto 16px",
-        }} />
+    <AppShell>
+      <div style={{ maxWidth: "720px", margin: "0 auto" }}>
 
-        {/* Header */}
+        {/* Welcome Header */}
         <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          marginBottom: "16px",
+          marginBottom: "28px",
+          padding: "24px",
+          background: "var(--gradient)",
+          borderRadius: "var(--radius-lg)",
+          boxShadow: "var(--shadow-md)",
+          position: "relative",
+          overflow: "hidden",
         }}>
-          <h3 style={{
-            fontFamily: "var(--font-display)",
-            fontWeight: 700,
-            fontSize: "18px",
-            color: "var(--text)",
-          }}>
-            New Message
-          </h3>
-          <button
-            onClick={onClose}
-            style={{
-              background: "var(--surface-2)",
-              border: "none",
-              borderRadius: "50%",
-              width: "32px",
-              height: "32px",
+          <div style={{ position: "absolute", top: "-20px", right: "-20px", width: "120px", height: "120px", borderRadius: "50%", background: "rgba(255,255,255,0.08)" }} />
+          <div style={{ position: "absolute", bottom: "-30px", right: "60px", width: "80px", height: "80px", borderRadius: "50%", background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <p style={{ fontSize: "12px", color: "rgba(255,255,255,0.75)", fontFamily: "var(--font-body)", fontWeight: 500, marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+              Your Dashboard
+            </p>
+            <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "22px", color: "white", marginBottom: "6px", lineHeight: 1.2 }}>
+              {userName ? `Welcome back, ${userName.split(" ")[0]} 👋` : "Welcome back 👋"}
+            </h1>
+            {profession && (
+              <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.8)", fontFamily: "var(--font-body)" }}>
+                {profession} · Keep pushing, every page counts.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Stats Grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "12px", marginBottom: "28px" }}>
+          {stats.map(({ icon: Icon, label, value, suffix, color, bg }, idx) => (
+            <div key={label} style={{
+              background: "var(--surface)",
+              borderRadius: "var(--radius)",
+              padding: "18px 16px",
+              border: "1px solid var(--border)",
+              boxShadow: "var(--shadow-sm)",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center",
-              cursor: "pointer",
-              color: "var(--text-muted)",
-            }}
-          >
-            <X size={16} />
-          </button>
-        </div>
-
-        {/* Search input */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          padding: "10px 14px",
-          borderRadius: "12px",
-          border: "1.5px solid var(--border)",
-          background: "var(--surface-2)",
-          marginBottom: "16px",
-        }}>
-          <UserSearch size={16} color="var(--text-muted)" />
-          <input
-            autoFocus
-            type="text"
-            placeholder="Search by name or username..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            style={{
-              border: "none",
-              background: "transparent",
-              fontFamily: "var(--font-body)",
-              fontSize: "14px",
-              color: "var(--text)",
-              outline: "none",
-              width: "100%",
-            }}
-          />
-        </div>
-
-        {/* Results */}
-        <div style={{ overflowY: "auto", flex: 1 }}>
-          {searching && (
-            <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "13px", padding: "20px" }}>
-              Searching...
-            </p>
-          )}
-          {!searching && query && results.length === 0 && (
-            <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "13px", padding: "20px" }}>
-              No users found for "{query}"
-            </p>
-          )}
-          {!searching && !query && (
-            <p style={{ textAlign: "center", color: "var(--text-light)", fontSize: "13px", padding: "20px" }}>
-              Type a name or username to search
-            </p>
-          )}
-          {results.map(user => (
-            <div
-              key={user.id}
-              onClick={() => onSelect(user.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                padding: "12px 8px",
-                borderRadius: "10px",
-                cursor: "pointer",
-                transition: "background 0.15s ease",
-              }}
-              onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}
-              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-            >
-              <Avatar name={user.full_name || user.username} avatar={user.avatar_url} size={40} />
+              gap: "14px",
+              opacity: animating ? 1 : 0,
+              transform: animating ? "translateY(0)" : "translateY(12px)",
+              transition: `opacity 0.4s ease ${idx * 0.08}s, transform 0.4s ease ${idx * 0.08}s`,
+            }}>
+              <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icon size={22} color={color} />
+              </div>
               <div>
-                <p style={{
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  color: "var(--text)",
-                  marginBottom: "2px",
-                }}>
-                  {user.full_name || user.username}
+                <p style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "24px", color: "var(--text)", lineHeight: 1, marginBottom: "4px" }}>
+                  {value}{suffix}
                 </p>
-                <p style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                  u/{user.username}
-                  {user.profession && ` · ${user.profession}`}
+                <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", fontWeight: 500 }}>
+                  {label}
                 </p>
               </div>
             </div>
           ))}
         </div>
-      </div>
-    </>
-  );
-}
 
-export default function MessagesPage() {
-  const supabase = createClient();
-  const [, navigate] = useLocation();
-  const [dms, setDms] = useState<DM[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<Tab>("messages");
-  const [showCompose, setShowCompose] = useState(false);
-
-  useEffect(() => {
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login"); return; }
-
-      const { data } = await supabase
-        .from("direct_messages")
-        .select("*")
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .order("created_at", { ascending: false });
-
-      if (!data) { setLoading(false); return; }
-
-      const seen = new Set<string>();
-      const conversations: DM[] = [];
-
-      for (const msg of data) {
-        const otherId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-        if (seen.has(otherId)) continue;
-        seen.add(otherId);
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("username, full_name, avatar_url")
-          .eq("id", otherId)
-          .single();
-
-        conversations.push({
-          id: msg.id,
-          other_user_id: otherId,
-          other_name: profile?.full_name || profile?.username || "Unknown",
-          other_avatar: profile?.avatar_url || null,
-          last_message: msg.content || "",
-          last_at: msg.created_at,
-          unread: !msg.is_read && msg.receiver_id === user.id,
-        });
-      }
-
-      setDms(conversations);
-      setLoading(false);
-    }
-    init();
-  }, []);
-
-  const filtered = dms.filter(d =>
-    d.other_name.toLowerCase().includes(search.toLowerCase())
-  );
-
-  const tabs: { key: Tab; label: string }[] = [
-    { key: "messages", label: "Messages" },
-    { key: "requests", label: "Requests" },
-    { key: "threads", label: "Threads" },
-  ];
-
-  return (
-    <AppShell>
-      <div style={{ maxWidth: "600px", margin: "0 auto", paddingBottom: "100px" }}>
-
-        {/* Header */}
-        <div style={{ marginBottom: "8px" }}>
-          <h1 style={{
-            fontFamily: "var(--font-display)",
-            fontWeight: 800,
-            fontSize: "26px",
-            color: "var(--text)",
-            marginBottom: "16px",
-          }}>
-            Chat
-          </h1>
-
-          {/* Tabs */}
-          <div style={{
-            display: "flex",
-            borderBottom: "1.5px solid var(--border)",
-            marginBottom: "16px",
-          }}>
-            {tabs.map(({ key, label }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                style={{
-                  padding: "10px 16px",
-                  border: "none",
-                  background: "transparent",
-                  fontFamily: "var(--font-body)",
-                  fontSize: "14px",
-                  fontWeight: activeTab === key ? 600 : 400,
-                  color: activeTab === key ? "var(--teal, #0D9488)" : "var(--text-muted)",
-                  cursor: "pointer",
-                  borderBottom: activeTab === key ? "2px solid var(--teal, #0D9488)" : "2px solid transparent",
-                  marginBottom: "-1.5px",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Search */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-          padding: "10px 14px",
-          borderRadius: "99px",
-          border: "1.5px solid var(--border)",
-          background: "var(--surface)",
-          marginBottom: "16px",
-          boxShadow: "var(--shadow-xs)",
-        }}>
-          <Search size={15} color="var(--text-muted)" />
-          <input
-            type="text"
-            placeholder="Search conversations"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{
-              border: "none",
-              background: "transparent",
-              fontFamily: "var(--font-body)",
-              fontSize: "14px",
-              color: "var(--text)",
-              outline: "none",
-              width: "100%",
-            }}
-          />
-        </div>
-
-        {/* Content */}
-        {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{
-                height: "72px",
-                borderRadius: "var(--radius)",
-                background: "var(--surface-2)",
-                border: "1px solid var(--border)",
-              }} className="skeleton" />
-            ))}
-          </div>
-        ) : activeTab === "messages" && filtered.length === 0 ? (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "60px 20px",
-            minHeight: "360px",
-            textAlign: "center",
-          }}>
-            <div style={{
-              width: "80px",
-              height: "80px",
-              borderRadius: "50%",
-              background: "var(--teal-soft, #F0FDFA)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "36px",
-              marginBottom: "20px",
-            }}>
-              💬
+        {/* Weekly Activity */}
+        <div style={{ background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)", padding: "20px", marginBottom: "28px", boxShadow: "var(--shadow-sm)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <Zap size={16} color="#F97316" />
+              <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", color: "var(--text)" }}>Weekly Activity</h3>
             </div>
-            <h2 style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: "20px",
-              color: "var(--text)",
-              marginBottom: "8px",
-            }}>
-              {dms.length === 0 ? "Welcome to chat!" : "No results"}
-            </h2>
-            <p style={{
-              fontSize: "14px",
-              color: "var(--text-muted)",
-              marginBottom: "24px",
-              maxWidth: "280px",
-              lineHeight: 1.6,
-            }}>
-              {dms.length === 0
-                ? "Start a conversation by tapping the button below"
-                : `No conversations matching "${search}"`}
-            </p>
-            {dms.length === 0 && (
-              <button
-                onClick={() => setShowCompose(true)}
-                style={{
-                  padding: "12px 24px",
-                  borderRadius: "99px",
-                  border: "none",
-                  background: "var(--gradient)",
-                  color: "white",
-                  fontFamily: "var(--font-display)",
-                  fontWeight: 600,
-                  fontSize: "14px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                }}
-              >
-                <Send size={16} /> Start a conversation
-              </button>
-            )}
+            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)" }}>This week</span>
           </div>
-        ) : activeTab === "requests" ? (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "60px 20px",
-            minHeight: "360px",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "56px", marginBottom: "16px" }}>📬</div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "18px", color: "var(--text)", marginBottom: "8px" }}>No requests yet</h2>
-            <p style={{ fontSize: "14px", color: "var(--text-muted)", maxWidth: "280px" }}>Message requests from new contacts will appear here</p>
-          </div>
-        ) : activeTab === "threads" ? (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "60px 20px",
-            minHeight: "360px",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: "56px", marginBottom: "16px" }}>🧵</div>
-            <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "18px", color: "var(--text)", marginBottom: "8px" }}>No threads yet</h2>
-            <p style={{ fontSize: "14px", color: "var(--text-muted)", maxWidth: "280px" }}>Threaded conversations will appear here</p>
-          </div>
-        ) : (
-          <div style={{
-            background: "var(--surface)",
-            borderRadius: "var(--radius)",
-            border: "1px solid var(--border)",
-            overflow: "hidden",
-            boxShadow: "var(--shadow-sm)",
-          }}>
-            {filtered.map((dm, i) => (
-              <div
-                key={dm.id}
-                onClick={() => navigate(`/messages/${dm.other_user_id}`)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "12px",
-                  padding: "14px 16px",
-                  cursor: "pointer",
-                  borderBottom: i < filtered.length - 1 ? "1px solid var(--border-light)" : "none",
-                  background: dm.unread ? "var(--teal-soft, #F0FDFA)" : "var(--surface)",
-                  transition: "background 0.15s ease",
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = "var(--surface-hover)"}
-                onMouseLeave={e => e.currentTarget.style.background = dm.unread ? "var(--teal-soft, #F0FDFA)" : "var(--surface)"}
-              >
-                <Avatar name={dm.other_name} avatar={dm.other_avatar} />
-                <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "8px", height: "60px" }}>
+            {days.map((day, i) => {
+              const height = [20, 45, 30, 55, 40, 15, 0][i];
+              const isToday = i === (new Date().getDay() + 6) % 7;
+              return (
+                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
                   <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "3px",
-                  }}>
-                    <p style={{
-                      fontFamily: "var(--font-display)",
-                      fontWeight: dm.unread ? 700 : 600,
-                      fontSize: "14px",
-                      color: "var(--text)",
-                    }}>
-                      {dm.other_name}
-                    </p>
-                    <span style={{ fontSize: "11px", color: "var(--text-light)" }}>
-                      {timeAgo(dm.last_at)}
-                    </span>
-                  </div>
-                  <p style={{
-                    fontSize: "13px",
-                    color: dm.unread ? "var(--text)" : "var(--text-muted)",
-                    fontFamily: "var(--font-body)",
-                    fontWeight: dm.unread ? 500 : 400,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                  }}>
-                    {dm.last_message}
-                  </p>
-                </div>
-                {dm.unread && (
-                  <div style={{
-                    width: "10px",
-                    height: "10px",
-                    borderRadius: "50%",
-                    background: "#0D9488",
-                    flexShrink: 0,
+                    width: "100%",
+                    height: `${Math.max(height, 4)}px`,
+                    borderRadius: "4px",
+                    background: height > 0 ? (isToday ? "#0D9488" : "rgba(13,148,136,0.3)") : "var(--surface-2)",
                   }} />
-                )}
-              </div>
-            ))}
+                  <span style={{ fontSize: "10px", color: isToday ? "#0D9488" : "var(--text-light)", fontFamily: "var(--font-body)", fontWeight: isToday ? 700 : 400 }}>
+                    {day}
+                  </span>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+
+        {/* Study Tools */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+          <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "17px", color: "var(--text)" }}>Study Tools</h2>
+          <span style={{ fontSize: "12px", color: "#0D9488", fontFamily: "var(--font-body)", fontWeight: 600 }}>5 available</span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: "12px", marginBottom: "28px" }}>
+          {featureCards.map(({ href, icon: Icon, label, description, color, bg }, idx) => (
+            <Link key={href} href={href} style={{
+              display: "flex",
+              flexDirection: "column",
+              padding: "18px 14px",
+              borderRadius: "var(--radius)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              textDecoration: "none",
+              color: "inherit",
+              boxShadow: "var(--shadow-xs)",
+              transition: "all 0.2s ease",
+              opacity: animating ? 1 : 0,
+              transform: animating ? "translateY(0)" : "translateY(12px)",
+            }}>
+              <div style={{ width: "44px", height: "44px", borderRadius: "12px", background: bg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "12px" }}>
+                <Icon size={20} color={color} />
+              </div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "14px", color: "var(--text)", marginBottom: "4px" }}>{label}</p>
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-body)", lineHeight: 1.4 }}>{description}</p>
+            </Link>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", boxShadow: "var(--shadow-sm)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{ width: "48px", height: "48px", borderRadius: "14px", background: "#FFF7ED", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "24px", flexShrink: 0 }}>
+              🎓
+            </div>
+            <div>
+              <p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "15px", color: "var(--text)", marginBottom: "3px" }}>Ready to study?</p>
+              <p style={{ fontSize: "12px", color: "var(--text-muted)", fontFamily: "var(--font-body)", lineHeight: 1.4 }}>Pick a tool and start earning points</p>
+            </div>
+          </div>
+          <Link href="/flashcards" style={{ display: "flex", alignItems: "center", gap: "4px", padding: "10px 16px", borderRadius: "99px", background: "var(--gradient)", color: "white", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", flexShrink: 0, whiteSpace: "nowrap" }}>
+            Start <ChevronRight size={14} />
+          </Link>
+        </div>
+
       </div>
-
-      {/* Floating Compose Button */}
-      <button
-        onClick={() => setShowCompose(true)}
-        style={{
-          position: "fixed",
-          bottom: "80px",
-          right: "20px",
-          width: "56px",
-          height: "56px",
-          borderRadius: "50%",
-          background: "var(--gradient)",
-          border: "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          boxShadow: "0 4px 16px rgba(13,148,136,0.35)",
-          transition: "all 0.2s ease",
-          color: "white",
-          zIndex: 100,
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.transform = "scale(1.08)";
-          e.currentTarget.style.boxShadow = "0 6px 20px rgba(13,148,136,0.45)";
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.transform = "scale(1)";
-          e.currentTarget.style.boxShadow = "0 4px 16px rgba(13,148,136,0.35)";
-        }}
-      >
-        <Send size={22} />
-      </button>
-
-      {/* Compose Modal */}
-      {showCompose && (
-        <ComposeModal
-          onClose={() => setShowCompose(false)}
-          onSelect={(userId) => {
-            setShowCompose(false);
-            navigate(`/messages/${userId}`);
-          }}
-        />
-      )}
     </AppShell>
   );
 }
