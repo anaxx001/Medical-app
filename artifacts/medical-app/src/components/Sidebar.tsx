@@ -237,8 +237,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             </Link>
           ))}
 
-          {/* Admin Panel */}
-          {(profile?.role === "superadmin" || profile?.role === "admin") && (
+          {/* Admin Panel - FIXED: Check for "super_admin" instead of "superadmin" */}
+          {(profile?.role === "super_admin" || profile?.role === "admin") && (
             <Link href="/admin" onClick={onClose} style={{ ...navLinkStyle(isActive("/admin")), color: isActive("/admin") ? "#0D9488" : "#F97316" }}>
               <ShieldCheck size={18} strokeWidth={2} style={{ flexShrink: 0 }} />
               Admin Panel
