@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 
 interface SplashScreenProps {
-  onFinish: () => void;
+  onComplete: () => void;
 }
 
-export default function SplashScreen({ onFinish }: SplashScreenProps) {
+export default function SplashScreen({ onComplete }: SplashScreenProps) {
   const [phase, setPhase] = useState<"enter" | "hold" | "exit">("enter");
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase("hold"), 600);
     const t2 = setTimeout(() => setPhase("exit"), 2200);
-    const t3 = setTimeout(() => onFinish(), 2800);
+    const t3 = setTimeout(() => onComplete(), 2800);
     return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
-  }, [onFinish]);
+  }, [onComplete]);
 
   return (
     <div
@@ -61,7 +61,6 @@ export default function SplashScreen({ onFinish }: SplashScreenProps) {
             alt="MedStudent"
             style={{ width: "72px", height: "72px", borderRadius: "18px", objectFit: "contain" }}
             onError={(e) => {
-              // Fallback if logo not found
               (e.target as HTMLImageElement).style.display = "none";
             }}
           />
