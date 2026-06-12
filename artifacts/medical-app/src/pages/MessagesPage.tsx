@@ -544,37 +544,39 @@ export default function MessagesPage() {
       </div>
 
       {/* Floating Compose Button */}
-      <button
-        onClick={() => setShowCompose(true)}
-        style={{
-          position: "fixed",
-          bottom: "80px",
-          right: "20px",
-          width: "56px",
-          height: "56px",
-          borderRadius: "50%",
-          background: "var(--gradient)",
-          border: "none",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "pointer",
-          boxShadow: "0 4px 16px rgba(13,148,136,0.35)",
-          transition: "all 0.2s ease",
-          color: "white",
-          zIndex: 100,
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.transform = "scale(1.08)";
-          e.currentTarget.style.boxShadow = "0 6px 20px rgba(13,148,136,0.45)";
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.transform = "scale(1)";
-          e.currentTarget.style.boxShadow = "0 4px 16px rgba(13,148,136,0.35)";
-        }}
-      >
-        <Send size={22} />
-      </button>
+      {dms.length > 0 && (
+        <button
+          onClick={() => setShowCompose(true)}
+          style={{
+            position: "fixed",
+            bottom: "80px",
+            right: "20px",
+            width: "56px",
+            height: "56px",
+            borderRadius: "50%",
+            background: "var(--gradient)",
+            border: "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            boxShadow: "0 4px 16px rgba(13,148,136,0.35)",
+            transition: "all 0.2s ease",
+            color: "white",
+            zIndex: 100,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = "scale(1.08)";
+            e.currentTarget.style.boxShadow = "0 6px 20px rgba(13,148,136,0.45)";
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.boxShadow = "0 4px 16px rgba(13,148,136,0.35)";
+          }}
+        >
+          <Send size={22} />
+        </button>
+      )}
 
       {/* Compose Modal */}
       {showCompose && (
