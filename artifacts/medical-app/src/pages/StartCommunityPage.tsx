@@ -128,6 +128,7 @@ export default function StartCommunityPage() {
         .from("communities")
         .insert({
           name,
+          slug: name,
           display_name: displayName,
           description,
           category,
