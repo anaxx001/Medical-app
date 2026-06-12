@@ -6,12 +6,10 @@ import BottomNav from "./BottomNav";
 import { Menu, Bell } from "lucide-react";
 import { getPrefs, getGreeting, UserPrefs } from "@/lib/userPrefs";
 import { createClient } from "@/lib/supabase";
-import { useTheme } from "@/context/ThemeContext";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const supabase = createClient();
-  const { darkMode } = useTheme();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [prefs, setPrefs] = useState<UserPrefs | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -19,41 +17,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [currentUserUsername, setCurrentUserUsername] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkAuthAndPrefs() {
       try {
-        // Check if user has an active Supabase session
         const { data: { session } } = await supabase.auth.getSession();
-        
-        // If user is authenticated, skip onboarding
+
         if (session?.user) {
           setPrefs(getPrefs() || null);
-          
-          // Fetch current user's username from profiles
+
           try {
             const { data: profileData } = await supabase
               .from("profiles")
-              .select("username")
+              .select("username, full_name, avatar_url")
               .eq("id", session.user.id)
               .single();
-            
-            if (profileData?.username) {
-              setCurrentUserUsername(profileData.username);
+
+            if (profileData) {
+              setCurrentUserUsername(profileData.username || null);
+              setCurrentUserName(profileData.full_name || profileData.username || null);
+              setCurrentUserAvatar(profileData.avatar_url || null);
             }
           } catch (err) {
-            console.error("Error fetching username:", err);
+            console.error("Error fetching profile:", err);
           }
-          
+
           setLoaded(true);
           return;
         }
 
-        // If no session, check for saved local prefs
         const saved = getPrefs();
         const isAuthPage = location === "/login" || location === "/signup";
-        
-        // Only show onboarding if no saved prefs AND not on auth page
+
         if (!saved && !isAuthPage) {
           setShowOnboarding(true);
         } else {
@@ -69,7 +66,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     checkAuthAndPrefs();
   }, []);
 
-  // Fetch unread notification count with proper real-time listener
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
 
@@ -78,7 +74,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Fetch initial count
         const { data } = await supabase
           .from("notifications")
           .select("id")
@@ -89,7 +84,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           setUnreadNotificationCount(data.length);
         }
 
-        // Set up real-time listener
         const channel = supabase
           .channel(`notifications-${user.id}`)
           .on(
@@ -101,7 +95,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               filter: `user_id=eq.${user.id}`,
             },
             async () => {
-              // Refetch count on any change
               const { data: updatedData } = await supabase
                 .from("notifications")
                 .select("id")
@@ -142,14 +135,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const isDashboard = location === "/";
-  const greeting = prefs
+  const greeting = currentUserName
+    ? `Good day, ${currentUserName.split(" ")[0]} 👋`
+    : prefs
     ? getGreeting(prefs.profession).replace(
         "Good day,",
         prefs.name ? `Good day, ${prefs.name} —` : "Good day,"
       )
     : "Good day 👋";
 
-  // Show loading spinner instead of white screen
+  function getAvatarLetter() {
+    if (currentUserName) return currentUserName[0].toUpperCase();
+    if (prefs?.name) return prefs.name[0].toUpperCase();
+    return "?";
+  }
+
   if (!loaded) {
     return (
       <div style={{
@@ -165,19 +165,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             height: "40px",
             borderRadius: "50%",
             border: "3px solid var(--border)",
-            borderTop: "3px solid var(--blue)",
+            borderTop: "3px solid #0D9488",
             animation: "spin 1s linear infinite",
           }} />
           <p style={{ fontFamily: "var(--font-body)", color: "var(--text-muted)", fontSize: "14px" }}>
             Loading MedStudent...
           </p>
-          <style>{
-            `
+          <style>{`
             @keyframes spin {
               to { transform: rotate(360deg); }
             }
-          `}
-          </style>
+          `}</style>
         </div>
       </div>
     );
@@ -189,12 +187,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       minHeight: "100vh",
       background: "var(--bg)",
       position: "relative",
-    }} className="dark:bg-slate-950">
+    }}>
       {showOnboarding && (
         <OnboardingModal onComplete={handleOnboardingComplete} />
       )}
 
-      {/* Backdrop */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -219,6 +216,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         width: "100%",
         maxWidth: "100vw",
         paddingBottom: "80px",
+        background: "var(--bg)",
       }}>
 
         {/* Header */}
@@ -233,7 +231,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           position: "sticky",
           top: 0,
           zIndex: 30,
-        }} className="dark:bg-slate-800 dark:border-slate-700">
+        }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
             <button
               onClick={() => setSidebarOpen(true)}
@@ -244,7 +242,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 padding: "6px",
                 color: "var(--text)",
               }}
-              className="dark:text-slate-100"
             >
               <Menu size={22} />
             </button>
@@ -255,10 +252,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   fontWeight: 700,
                   fontSize: "15px",
                   color: "var(--text)",
-                }} className="dark:text-slate-100">
+                }}>
                   {greeting}
                 </p>
-                <p style={{ fontSize: "11px", color: "var(--text-light)" }} className="dark:text-slate-400">
+                <p style={{ fontSize: "11px", color: "var(--text-light)" }}>
                   Keep pushing — every page counts.
                 </p>
               </div>
@@ -281,9 +278,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 justifyContent: "center",
                 textDecoration: "none",
               }}
-              className="dark:text-slate-100"
             >
-              <Bell size={22} />
+              <Bell size={22} className={unreadNotificationCount > 0 ? "bell-shake" : ""} />
               {unreadNotificationCount > 0 && (
                 <span style={{
                   position: "absolute",
@@ -292,7 +288,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   width: "18px",
                   height: "18px",
                   borderRadius: "50%",
-                  background: "#E8445A",
+                  background: "#F97316",
                   border: "2px solid var(--surface)",
                   display: "flex",
                   alignItems: "center",
@@ -301,7 +297,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   fontWeight: "700",
                   color: "white",
                   fontFamily: "var(--font-display)",
-                }} className="dark:border-slate-800">
+                }}>
                   {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
                 </span>
               )}
@@ -320,15 +316,21 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 color: "white",
                 fontWeight: 700,
                 textDecoration: "none",
+                overflow: "hidden",
+                flexShrink: 0,
               }}
             >
-              {prefs?.name ? prefs.name[0].toUpperCase() : "M"}
+              {currentUserAvatar ? (
+                <img src={currentUserAvatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                getAvatarLetter()
+              )}
             </Link>
           </div>
         </header>
 
         {/* Page content with animation */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px" }} className="dark:bg-slate-950">
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px", background: "var(--bg)" }}>
           <div style={{
             opacity: visible ? 1 : 0,
             transform: visible ? "translateY(0px)" : "translateY(12px)",
@@ -339,7 +341,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </main>
 
-      {/* Bottom nav — pinned to bottom */}
+      {/* Bottom nav */}
       <div style={{
         position: "fixed",
         bottom: 0,
