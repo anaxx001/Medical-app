@@ -273,7 +273,7 @@ export default function ProfilePage() {
               <div style={{ flex: 1, marginTop: "40px" }}>
                 {isOwn ? (
                   <Link
-                    href="/settings"
+                    href="/profile-settings"
                     style={{
                       display: "inline-flex", alignItems: "center", gap: "6px",
                       padding: "8px 14px", borderRadius: "99px",
@@ -488,4 +488,3 @@ export default function ProfilePage() {
     </AppShell>
   );
 }
-      
