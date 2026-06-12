@@ -14,7 +14,8 @@ import PostDetailPage from "@/pages/PostDetailPage";
 import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
 import AdminPage from "@/pages/AdminPage";
-import SettingsPage from "@/pages/SettingsPage";
+import AppSettingsPage from "@/pages/AppSettingsPage";
+import ProfileSettingsPage from "@/pages/ProfileSettingsPage";
 import CommunityPage from "@/pages/CommunityPage";
 import CreatePostPage from "@/pages/CreatePostPage";
 import FlashcardsPage from "@/pages/FlashcardsPage";
@@ -22,7 +23,8 @@ import QuizPage from "@/pages/QuizPage";
 import NotesPage from "@/pages/NotesPage";
 import PastQuestionsPage from "@/pages/PastQuestionsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
-import GroupsPage from "@/pages/GroupsPage";
+import NewsPage from "@/pages/NewsPage";
+import SavedPostsPage from "@/pages/SavedPostsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -96,14 +98,23 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       <Route path="/notifications">
         <ProtectedRoute component={NotificationsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
-      <Route path="/groups">
-        <ProtectedRoute component={GroupsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      <Route path="/news">
+        <ProtectedRoute component={NewsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/admin">
         <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/settings">
-        <ProtectedRoute component={SettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+        <ProtectedRoute component={AppSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/app-settings">
+        <ProtectedRoute component={AppSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/profile-settings">
+        <ProtectedRoute component={ProfileSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/saved">
+        <ProtectedRoute component={SavedPostsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/c/:slug">
         <ProtectedRoute component={CommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
