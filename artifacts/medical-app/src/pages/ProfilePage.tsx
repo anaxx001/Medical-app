@@ -3,22 +3,11 @@ import AppShell from "@/components/AppShell";
 import PostCard, { Post } from "@/components/PostCard";
 import UserAvatar from "@/components/UserAvatar";
 import { createClient } from "@/lib/supabase";
+import { ROLE_COLORS, ROLE_LABELS, POST_SELECT_FIELDS } from "@/lib/constants";
+import { normalizePosts } from "@/lib/posts";
+import type { Profile } from "@/lib/types";
 import { useParams, Link } from "wouter";
 import { Settings, MapPin, BookOpen, Clock, MessageCircle, Bookmark } from "lucide-react";
-
-interface Profile {
-  id: string;
-  username: string;
-  full_name: string;
-  avatar_url?: string;
-  profession?: string;
-  bio?: string;
-  institution?: string;
-  course?: string;
-  study_year?: string;
-  role: string;
-  created_at: string;
-}
 
 interface Comment {
   id: string;
@@ -26,22 +15,6 @@ interface Comment {
   created_at: string;
   post_id: string;
 }
-
-const roleColors: Record<string, { bg: string; color: string }> = {
-  super_admin: { bg: "#FFF0F2", color: "#E8445A" },
-  admin: { bg: "#FFF8EC", color: "#F5A623" },
-  moderator: { bg: "#EBF5FF", color: "#2D87C8" },
-  exco: { bg: "#F5F0FF", color: "#9B6DFF" },
-  student: { bg: "#EDFFF5", color: "#3DBE7A" },
-};
-
-const roleLabels: Record<string, string> = {
-  super_admin: "Super Admin",
-  admin: "Admin",
-  moderator: "Moderator",
-  exco: "Exco",
-  student: "Student",
-};
 
 type TabType = "posts" | "saved" | "history" | "comments";
 
@@ -83,23 +56,12 @@ export default function ProfilePage() {
 
       const { data: postsData } = await supabase
         .from("posts")
-        .select(`
-          id, title, content, file_url, file_type,
-          is_announcement, is_pinned, upvotes, downvotes, created_at,
-          author:profiles!author_id(id, username, full_name, avatar_url, profession),
-          community:communities!community_id(id, name, slug, icon),
-          comment_count:comments(count)
-        `)
+        .select(POST_SELECT_FIELDS)
         .eq("author_id", profileData.id)
         .order("created_at", { ascending: false })
         .limit(50);
 
-      // @ts-ignore
-      setPosts((postsData || []).map((p: any) => ({
-        ...p,
-        comment_count: p.comment_count?.[0]?.count || 0,
-        user_vote: null,
-      })));
+      setPosts(normalizePosts((postsData || []) as Record<string, unknown>[]));
 
       const totalVotes = (postsData || []).reduce(
         (sum: number, p: any) => sum + (p.upvotes || 0),
@@ -112,47 +74,33 @@ export default function ProfilePage() {
           .from("saved_posts")
           .select(`
             id,
-            post:posts(
-              id, title, content, file_url, file_type,
-              is_announcement, is_pinned, upvotes, downvotes, created_at,
-              author:profiles!author_id(id, username, full_name, avatar_url, profession),
-              community:communities!community_id(id, name, slug, icon),
-              comment_count:comments(count)
-            )
+            post:posts(${POST_SELECT_FIELDS})
           `)
           .eq("user_id", user.id)
           .order("created_at", { ascending: false })
           .limit(50);
 
-        // @ts-ignore
-        setSavedPosts((saved || []).map((s: any) => ({
-          ...s.post,
-          comment_count: s.post?.comment_count?.[0]?.count || 0,
-          user_vote: null,
-        })));
+        setSavedPosts(
+          (saved || []).map((s: any) => s.post)
+            .filter(Boolean)
+            .map((p: any) => normalizePosts([p as Record<string, unknown>])[0])
+        );
 
         const { data: history } = await supabase
           .from("post_history")
           .select(`
             id,
-            post:posts(
-              id, title, content, file_url, file_type,
-              is_announcement, is_pinned, upvotes, downvotes, created_at,
-              author:profiles!author_id(id, username, full_name, avatar_url, profession),
-              community:communities!community_id(id, name, slug, icon),
-              comment_count:comments(count)
-            )
+            post:posts(${POST_SELECT_FIELDS})
           `)
           .eq("user_id", user.id)
           .order("viewed_at", { ascending: false })
           .limit(50);
 
-        // @ts-ignore
-        setHistoryPosts((history || []).map((h: any) => ({
-          ...h.post,
-          comment_count: h.post?.comment_count?.[0]?.count || 0,
-          user_vote: null,
-        })));
+        setHistoryPosts(
+          (history || []).map((h: any) => h.post)
+            .filter(Boolean)
+            .map((p: any) => normalizePosts([p as Record<string, unknown>])[0])
+        );
       }
 
       const { data: commentsData } = await supabase
@@ -310,15 +258,15 @@ export default function ProfilePage() {
                 u/{profile.username}
               </p>
 
-              {profile.role && roleColors[profile.role] && (
+              {profile.role && ROLE_COLORS[profile.role] && (
                 <div style={{ marginBottom: "12px" }}>
                   <span style={{
                     padding: "4px 10px", borderRadius: "99px",
-                    background: roleColors[profile.role].bg,
-                    color: roleColors[profile.role].color,
+                    background: ROLE_COLORS[profile.role].bg,
+                    color: ROLE_COLORS[profile.role].color,
                     fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "11px",
                   }}>
-                    {roleLabels[profile.role] || profile.role}
+                    {ROLE_LABELS[profile.role] || profile.role}
                   </span>
                 </div>
               )}

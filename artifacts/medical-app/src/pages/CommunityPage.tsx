@@ -1,18 +1,15 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import PostCard, { Post } from "@/components/PostCard";
+import LoadingList from "@/components/LoadingList";
+import EmptyState from "@/components/EmptyState";
 import { createClient } from "@/lib/supabase";
+import { POST_SELECT_FIELDS } from "@/lib/constants";
+import { normalizePosts } from "@/lib/posts";
 import { useParams, Link } from "wouter";
 import { PenSquare } from "lucide-react";
 
-interface Community {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string;
-  description?: string;
-  member_count?: number;
-}
+import type { Community } from "@/lib/types";
 
 export default function CommunityPage() {
   const params = useParams<{ slug: string }>();
@@ -41,25 +38,12 @@ export default function CommunityPage() {
 
       const { data: postsData } = await supabase
         .from("posts")
-        .select(`
-          id, title, content, file_url, file_type,
-          is_announcement, is_pinned, upvotes, downvotes, created_at,
-          author:profiles!author_id(id, username, full_name, avatar_url, profession),
-          community:communities!community_id(id, name, slug, icon),
-          comment_count:comments(count)
-        `)
+        .select(POST_SELECT_FIELDS)
         .eq("community_id", communityData.id)
         .order("upvotes", { ascending: false })
         .limit(30);
 
-      setPosts(
-        // @ts-ignore
-        (postsData || []).map((p: any) => ({
-          ...p,
-          comment_count: p.comment_count?.[0]?.count || 0,
-          user_vote: null,
-        }))
-      );
+      setPosts(normalizePosts((postsData || []) as Record<string, unknown>[]));
       setLoading(false);
     }
     fetchData();
@@ -90,15 +74,9 @@ export default function CommunityPage() {
         )}
 
         {loading ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {[1, 2, 3].map(i => <div key={i} style={{ height: "140px", borderRadius: "var(--radius)", background: "var(--surface)", border: "1px solid var(--border)", opacity: 0.6 }} />)}
-          </div>
+          <LoadingList count={3} height="140px" />
         ) : posts.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
-            <div style={{ fontSize: "40px", marginBottom: "12px" }}>🌱</div>
-            <p style={{ fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "15px", color: "var(--text-muted)" }}>No posts in this community yet.</p>
-            <p style={{ fontSize: "13px", color: "var(--text-light)", marginTop: "6px" }}>Be the first to share something!</p>
-          </div>
+          <EmptyState emoji="🌱" title="No posts in this community yet." description="Be the first to share something!" />
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             {posts.map(post => <PostCard key={post.id} post={post} currentUserId={currentUserId} />)}

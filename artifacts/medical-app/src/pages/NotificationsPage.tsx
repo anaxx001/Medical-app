@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
+import { timeAgo } from "@/lib/formatters";
 import { useLocation } from "wouter";
 import { Bell, X } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -18,15 +19,6 @@ type Notification = {
   is_read: boolean;
   created_at: string;
 };
-
-function timeAgo(date: string) {
-  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
-  return new Date(date).toLocaleDateString();
-}
 
 function Avatar({ name, avatar, size = 40 }: { name: string; avatar: string | null; size?: number }) {
   return (

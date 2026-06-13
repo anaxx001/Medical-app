@@ -1,18 +1,8 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { createClient } from "@/lib/supabase";
+import type { Community } from "@/lib/types";
 import { Users, TrendingUp, Plus } from "lucide-react";
-
-interface Community {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string;
-  description?: string;
-  member_count?: number;
-  weekly_visitors?: number;
-  topic?: string;
-}
 
 const HEALTH_TOPICS = [
   "All",
