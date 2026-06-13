@@ -12,11 +12,12 @@ function authHeaders(authToken?: string): HeadersInit {
 }
 
 export async function sendChatMessage(
-  messages: { role: "user" | "assistant"; content: string }[]
+  messages: { role: "user" | "assistant"; content: string }[],
+  authToken?: string,
 ): Promise<string> {
   const res = await fetch(apiUrl("/chat"), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders(authToken),
     body: JSON.stringify({ messages }),
   });
 

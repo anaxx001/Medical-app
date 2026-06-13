@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { verifyAuth } from "../lib/auth";
 
 const router = Router();
 
-router.post("/chat", async (req, res) => {
+router.post("/chat", verifyAuth, async (req, res) => {
   const { messages } = req.body as {
     messages: Array<{ role: "user" | "assistant"; content: string }>;
   };
@@ -14,7 +15,7 @@ router.post("/chat", async (req, res) => {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+    return res.status(500).json({ error: "AI service not configured" });
   }
 
   try {
@@ -42,7 +43,7 @@ Be friendly, encouraging, and culturally aware of the Nigerian medical education
     return res.json({ content: text });
   } catch (err: any) {
     console.error("Gemini error:", err);
-    return res.status(500).json({ error: err.message || "AI request failed" });
+    return res.status(500).json({ error: "AI request failed" });
   }
 });
 
