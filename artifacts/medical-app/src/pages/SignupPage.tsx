@@ -14,6 +14,11 @@ const icons: Record<Profession, string> = {
 "Dentist": "🦷", "Other": "📚",
 };
 
+const studyYears = [
+"Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6",
+"Professor", "Consultant",
+];
+
 export default function SignupPage() {
 const [, navigate] = useLocation();
 const supabase = createClient();
@@ -24,6 +29,7 @@ const [username, setUsername] = useState("");
 const [email, setEmail] = useState("");
 const [password, setPassword] = useState("");
 const [profession, setProfession] = useState<Profession | null>(null);
+const [studyYear, setStudyYear] = useState("");
 const [loading, setLoading] = useState(false);
 const [error, setError] = useState("");
 
@@ -32,7 +38,7 @@ if (!profession) return;
 setLoading(true);
 setError("");
 try {
-const { error: signUpError } = await supabase.auth.signUp({
+const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
 email,
 password,
 options: {
@@ -40,10 +46,18 @@ data: {
 full_name: fullName,
 username: username.toLowerCase().trim(),
 profession,
+study_year: studyYear,
 },
 },
 });
 if (signUpError) throw signUpError;
+
+// Backstop: persist study_year on the profile in case the auth trigger
+// doesn't map it from metadata.
+const newUserId = signUpData.user?.id;
+if (newUserId && studyYear) {
+await supabase.from("profiles").update({ study_year: studyYear }).eq("id", newUserId);
+}
 navigate("/");
 } catch (err: any) {
 setError(err.message || "Something went wrong.");
@@ -169,7 +183,7 @@ return (
             Select your health science discipline
           </p>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "24px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "18px" }}>
             {professions.map((p) => {
               const isSelected = profession === p;
               return (
@@ -196,6 +210,22 @@ return (
             })}
           </div>
 
+          <div style={{ marginBottom: "24px" }}>
+            <label style={{ display: "block", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", color: "var(--text)", marginBottom: "6px" }}>
+              Study Year / Level
+            </label>
+            <select
+              value={studyYear}
+              onChange={(e) => setStudyYear(e.target.value)}
+              style={{ width: "100%", padding: "11px 14px", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface-2)", fontFamily: "var(--font-body)", fontSize: "13px", color: "var(--text)", boxSizing: "border-box", cursor: "pointer" }}
+            >
+              <option value="">Select your level</option>
+              {studyYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
           {error && (
             <p style={{ fontSize: "13px", color: "#E8445A", marginBottom: "14px", textAlign: "center", background: "#FFF0F2", padding: "10px", borderRadius: "var(--radius-sm)" }}>
               {error}
@@ -212,14 +242,14 @@ return (
 
             <button
               onClick={handleSignup}
-              disabled={!profession || loading}
+              disabled={!profession || !studyYear || loading}
               style={{
                 flex: 2,
                 padding: "13px",
                 borderRadius: "var(--radius-sm)",
                 border: "none",
-                background: profession ? "var(--gradient)" : "var(--border)",
-                color: profession ? "white" : "var(--text-muted)"
+                background: profession && studyYear ? "var(--gradient)" : "var(--border)",
+                color: profession && studyYear ? "white" : "var(--text-muted)"
               }}
             >
               {loading ? "Creating..." : "Join MedStudent →"}

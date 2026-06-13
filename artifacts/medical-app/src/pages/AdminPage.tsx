@@ -31,7 +31,9 @@ interface Profile {
   profession: string;
   role: string;
   created_at: string;
-  is_suspended?: boolean;
+  institution?: string;
+  study_year?: string;
+  is_banned?: boolean;
   post_count?: number;
 }
 
@@ -91,6 +93,13 @@ const roleColors: Record<string, { bg: string; color: string }> = {
 
 type Tab = "overview" | "users" | "posts" | "communities" | "reports" | "audit";
 
+type UserSort = "newest" | "oldest" | "name";
+
+const STUDY_YEARS = [
+  "Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6",
+  "Professor", "Consultant",
+];
+
 const SkeletonLoader = ({ width = "100%", height = "20px", count = 1 }: any) => (
   <>
     {Array.from({ length: count }).map((_, i) => (
@@ -138,6 +147,10 @@ export default function AdminPage() {
   const [searchUsers, setSearchUsers] = useState("");
   const [filterRole, setFilterRole] = useState("");
   const [filterProfession, setFilterProfession] = useState("");
+  const [filterInstitution, setFilterInstitution] = useState("");
+  const [filterStudyYear, setFilterStudyYear] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [userSort, setUserSort] = useState<UserSort>("newest");
   const [userPage, setUserPage] = useState(1);
   const [searchPosts, setSearchPosts] = useState("");
   const [filterReportType, setFilterReportType] = useState("");
@@ -184,7 +197,7 @@ export default function AdminPage() {
         supabase.from("communities").select("*", { count: "exact", head: true }),
         supabase
           .from("profiles")
-          .select("id, username, full_name, profession, role, created_at, is_suspended")
+          .select("id, username, full_name, profession, role, created_at, institution, study_year, is_banned")
           .order("created_at", { ascending: false })
           .limit(100),
         supabase
@@ -293,7 +306,7 @@ export default function AdminPage() {
   }
 
   async function toggleUserSuspend(userId: string, currentStatus: boolean) {
-    await supabase.from("profiles").update({ is_suspended: !currentStatus }).eq("id", userId);
+    await supabase.from("profiles").update({ is_banned: !currentStatus }).eq("id", userId);
 
     if (currentRole === "super_admin") {
       await supabase.from("audit_logs").insert({
@@ -304,7 +317,7 @@ export default function AdminPage() {
       });
     }
 
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_suspended: !currentStatus } : u)));
+    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, is_banned: !currentStatus } : u)));
   }
 
   async function deletePost(postId: string) {
@@ -401,16 +414,54 @@ export default function AdminPage() {
   };
 
   const usersPerPage = 20;
+
+  // Auto-suggest source: distinct, non-empty institutions of existing users.
+  const institutionSuggestions = Array.from(
+    new Set(users.map((u) => (u.institution || "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
+  const usersFiltersActive =
+    !!searchUsers || !!filterRole || !!filterProfession ||
+    !!filterInstitution || !!filterStudyYear || !!filterStatus ||
+    userSort !== "newest";
+
+  function clearUserFilters() {
+    setSearchUsers("");
+    setFilterRole("");
+    setFilterProfession("");
+    setFilterInstitution("");
+    setFilterStudyYear("");
+    setFilterStatus("");
+    setUserSort("newest");
+    setUserPage(1);
+  }
+
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       u.username.toLowerCase().includes(searchUsers.toLowerCase()) ||
       u.full_name.toLowerCase().includes(searchUsers.toLowerCase());
     const matchesRole = !filterRole || u.role === filterRole;
     const matchesProfession = !filterProfession || u.profession === filterProfession;
-    return matchesSearch && matchesRole && matchesProfession;
+    const matchesInstitution =
+      !filterInstitution ||
+      (u.institution || "").toLowerCase().includes(filterInstitution.toLowerCase());
+    const matchesStudyYear = !filterStudyYear || u.study_year === filterStudyYear;
+    const matchesStatus =
+      !filterStatus ||
+      (filterStatus === "suspended" ? !!u.is_banned : !u.is_banned);
+    return matchesSearch && matchesRole && matchesProfession &&
+      matchesInstitution && matchesStudyYear && matchesStatus;
   });
 
-  const paginatedUsers = filteredUsers.slice(
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    if (userSort === "name") {
+      return (a.full_name || a.username).localeCompare(b.full_name || b.username);
+    }
+    const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    return userSort === "oldest" ? diff : -diff;
+  });
+
+  const paginatedUsers = sortedUsers.slice(
     (userPage - 1) * usersPerPage,
     userPage * usersPerPage
   );
@@ -562,12 +613,10 @@ export default function AdminPage() {
           <div>
             {/* Stats Grid */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "16px", marginBottom: "32px" }}>
-              {statCard("👥", "Total Users", stats.users, Math.round((stats.new_this_week / stats.users) * 100) || 0)}
               {statCard("📝", "Total Posts", stats.posts, 0)}
-              {statCard("💬", "Total Comments", stats.comments, 0)}
-              {currentRole !== "moderator" && statCard("🏘️", "Communities", stats.communities, 0)}
+              {statCard("🏘️", "Communities", stats.communities, 0)}
               {statCard("⏰", "Active Today", stats.active_today, 0)}
-              {statCard("🚩", "Pending Reports", stats.pending_reports, 0)}
+              {statCard("🚩", "Pending Flags", stats.pending_reports, 0)}
             </div>
 
             {/* Recent Activity */}
@@ -672,7 +721,107 @@ export default function AdminPage() {
                 <option value="Dentistry">Dentistry</option>
                 <option value="Other">Other</option>
               </select>
+
+              <input
+                type="text"
+                list="admin-institution-suggestions"
+                placeholder="University / Institution"
+                value={filterInstitution}
+                onChange={(e) => { setFilterInstitution(e.target.value); setUserPage(1); }}
+                style={{
+                  padding: "10px 12px",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontFamily: "var(--font-body)",
+                }}
+              />
+              <datalist id="admin-institution-suggestions">
+                {institutionSuggestions.map((inst) => (
+                  <option key={inst} value={inst} />
+                ))}
+              </datalist>
+
+              <select
+                value={filterStudyYear}
+                onChange={(e) => { setFilterStudyYear(e.target.value); setUserPage(1); }}
+                style={{
+                  padding: "10px 12px",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontFamily: "var(--font-body)",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">All Study Years</option>
+                {STUDY_YEARS.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+
+              <select
+                value={filterStatus}
+                onChange={(e) => { setFilterStatus(e.target.value); setUserPage(1); }}
+                style={{
+                  padding: "10px 12px",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontFamily: "var(--font-body)",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+
+              <select
+                value={userSort}
+                onChange={(e) => { setUserSort(e.target.value as UserSort); setUserPage(1); }}
+                style={{
+                  padding: "10px 12px",
+                  border: "1px solid var(--border)",
+                  borderRadius: "var(--radius-sm)",
+                  background: "var(--surface)",
+                  color: "var(--text)",
+                  fontFamily: "var(--font-body)",
+                  cursor: "pointer",
+                }}
+              >
+                <option value="newest">Sort: Newest First</option>
+                <option value="oldest">Sort: Oldest First</option>
+                <option value="name">Sort: Name (A–Z)</option>
+              </select>
             </div>
+
+            {usersFiltersActive && (
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "16px" }}>
+                <button
+                  onClick={clearUserFilters}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "8px 14px",
+                    border: "1px solid var(--border)",
+                    borderRadius: "var(--radius-sm)",
+                    background: "var(--surface)",
+                    color: "var(--text)",
+                    fontFamily: "var(--font-display)",
+                    fontWeight: 600,
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  <X size={14} /> Clear All Filters
+                </button>
+              </div>
+            )}
 
             {/* Users List */}
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -689,7 +838,7 @@ export default function AdminPage() {
                           <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", margin: 0 }}>
                             {user.full_name || user.username}
                           </p>
-                          {user.is_suspended && (
+                          {user.is_banned && (
                             <span
                               style={{
                                 padding: "2px 8px",
@@ -717,7 +866,10 @@ export default function AdminPage() {
                           </span>
                         </div>
                         <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: "0 0 4px 0" }}>
-                          @{user.username} • {user.profession} • Joined {new Date(user.created_at).toLocaleDateString()}
+                          @{user.username} • {user.profession}{user.study_year ? ` • ${user.study_year}` : ""}
+                        </p>
+                        <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
+                          🏛️ {user.institution || "No institution"} • Registered {new Date(user.created_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
                         </p>
                       </div>
 
@@ -742,11 +894,11 @@ export default function AdminPage() {
                         </select>
 
                         <button
-                          onClick={() => toggleUserSuspend(user.id, user.is_suspended || false)}
+                          onClick={() => toggleUserSuspend(user.id, user.is_banned || false)}
                           style={{
                             padding: "8px 12px",
-                            background: user.is_suspended ? "#D1FAE5" : "#FEE2E2",
-                            color: user.is_suspended ? "#059669" : "#DC2626",
+                            background: user.is_banned ? "#D1FAE5" : "#FEE2E2",
+                            color: user.is_banned ? "#059669" : "#DC2626",
                             border: "none",
                             borderRadius: "var(--radius-sm)",
                             fontSize: "12px",
@@ -754,7 +906,7 @@ export default function AdminPage() {
                             cursor: "pointer",
                           }}
                         >
-                          {user.is_suspended ? "Unsuspend" : "Suspend"}
+                          {user.is_banned ? "Unsuspend" : "Suspend"}
                         </button>
                       </div>
                     </div>
