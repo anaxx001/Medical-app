@@ -139,8 +139,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         flexDirection: "column",
         transform: isOpen ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        overflow: "hidden",
         height: "100vh",
+        overflow: "hidden",
       }}
     >
       {/* Header */}
@@ -226,8 +226,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         )}
       </div>
 
-      {/* Scrollable area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 8px", minHeight: 0 }}>
+      {/* BUGFIX 3: Scrollable area with proper flex layout */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 8px", minHeight: 0, display: "flex", flexDirection: "column" }}>
         <nav style={{ display: "flex", flexDirection: "column", gap: "4px", paddingTop: "4px" }}>
 
           {/* Main nav items */}
