@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
+import { timeAgo } from "@/lib/formatters";
 import { useLocation } from "wouter";
 import { Search, Send, X, UserSearch } from "lucide-react";
 import AppShell from "@/components/AppShell";
@@ -15,14 +16,6 @@ type DM = {
 };
 
 type Tab = "messages" | "requests" | "threads";
-
-function timeAgo(date: string) {
-  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
-  if (diff < 60) return "now";
-  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-  return new Date(date).toLocaleDateString();
-}
 
 function Avatar({ name, avatar, size = 44 }: { name: string; avatar: string | null; size?: number }) {
   return (

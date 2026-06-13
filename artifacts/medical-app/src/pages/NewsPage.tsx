@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { Newspaper, Pin, ChevronRight, AlertCircle } from "lucide-react";
 import AppShell from "@/components/AppShell";
+import LoadingList from "@/components/LoadingList";
+import EmptyState from "@/components/EmptyState";
 import { createClient } from "@/lib/supabase";
+import { formatDateFull } from "@/lib/formatters";
 import { Link } from "wouter";
 
 interface NewsPost {
@@ -58,12 +61,7 @@ export default function NewsPage() {
 
   const canPost = userRole === "superadmin" || userRole === "admin" || userRole === "moderator";
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-NG", {
-      day: "numeric", month: "short", year: "numeric",
-    });
-  };
+
 
   return (
     <AppShell>
@@ -123,50 +121,15 @@ export default function NewsPage() {
         )}
 
         {/* Loading state */}
-        {loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {[1, 2, 3].map((i) => (
-              <div key={i} style={{
-                height: "100px",
-                borderRadius: "var(--radius)",
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                animation: "pulse 1.5s ease-in-out infinite",
-                opacity: 0.6,
-              }} />
-            ))}
-          </div>
-        )}
+        {loading && <LoadingList count={3} />}
 
         {/* Empty state */}
         {!loading && posts.length === 0 && (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "360px",
-            background: "var(--surface)",
-            borderRadius: "var(--radius)",
-            border: "1px solid var(--border)",
-            padding: "40px",
-            textAlign: "center",
-            gap: "16px",
-          }}>
-            <div style={{ fontSize: "56px" }}>📰</div>
-            <h2 style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: "18px",
-              color: "var(--text)",
-              margin: 0,
-            }}>
-              No news yet
-            </h2>
-            <p style={{ fontSize: "14px", color: "var(--text-muted)", maxWidth: "280px", margin: 0 }}>
-              Campus announcements and updates will appear here. Check back soon!
-            </p>
-          </div>
+          <EmptyState
+            emoji="📰"
+            title="No news yet"
+            description="Campus announcements and updates will appear here. Check back soon!"
+          />
         )}
 
         {/* News feed */}
@@ -259,7 +222,7 @@ export default function NewsPage() {
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "4px", color: "var(--text-muted)" }}>
-                      <span style={{ fontSize: "12px" }}>{formatDate(post.created_at)}</span>
+                      <span style={{ fontSize: "12px" }}>{formatDateFull(post.created_at)}</span>
                       <ChevronRight size={14} />
                     </div>
                   </div>

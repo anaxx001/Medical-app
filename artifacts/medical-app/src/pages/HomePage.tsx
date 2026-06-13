@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import PostCard, { Post } from "@/components/PostCard";
 import { createClient } from "@/lib/supabase";
+import { formatDateShort } from "@/lib/formatters";
+import { POST_SELECT_FIELDS } from "@/lib/constants";
+import { normalizePosts } from "@/lib/posts";
 import { PenSquare, TrendingUp, Clock, Flame, ChevronRight, Megaphone, ChevronDown, ChevronUp, Calendar, Search } from "lucide-react";
 import { Link } from "wouter";
 
@@ -50,17 +53,9 @@ export default function HomePage() {
     async function fetchPosts() {
       setLoading(true);
       try {
-        // @ts-ignore
         let query = supabase
           .from("posts")
-          .select(`
-            id, title, content, file_url, file_type,
-            is_announcement, is_pinned, upvotes, downvotes,
-            created_at,
-            author:profiles!author_id (id, username, full_name, avatar_url, profession),
-            community:communities!community_id (id, name, slug, icon),
-            comment_count:comments(count)
-          `);
+          .select(POST_SELECT_FIELDS);
 
         if (filter === "new") {
           query = query.order("created_at", { ascending: false });
@@ -92,11 +87,9 @@ export default function HomePage() {
         }
 
         setPosts(
-          (data || []).map((p: any) => ({
-            ...p,
-            comment_count: p.comment_count?.[0]?.count || 0,
-            user_vote: votesMap[p.id] || null,
-          }))
+          normalizePosts(
+            (data || []).map((p: any) => ({ ...p, user_vote: votesMap[p.id] || null }))
+          )
         );
       } catch (err) {
         console.error(err);
@@ -108,9 +101,7 @@ export default function HomePage() {
     fetchPosts();
   }, [filter, currentUserId]);
 
-  function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
+
 
   const displayedPosts = posts.filter(post =>
     post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -154,7 +145,7 @@ export default function HomePage() {
                         <div key={ann.id} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "12px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
                             <h5 style={{ margin: 0, fontSize: "13px", fontWeight: 700, color: "var(--text)" }}>{ann.title}</h5>
-                            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: "var(--text-muted)" }}><Calendar size={11} />{formatDate(ann.created_at)}</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "11px", color: "var(--text-muted)" }}><Calendar size={11} />{formatDateShort(ann.created_at)}</div>
                           </div>
                           <p style={{ margin: 0, fontSize: "13px", color: "var(--text-muted)", lineHeight: 1.5 }}>{ann.content}</p>
                         </div>

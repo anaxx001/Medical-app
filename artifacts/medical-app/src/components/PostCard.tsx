@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark, FileText, Download, Music } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { timeAgo } from "@/lib/formatters";
 import UserAvatar from "./UserAvatar";
 
 type MediaKind = "image" | "audio" | "video" | "document";
@@ -107,16 +108,6 @@ export default function PostCard({ post, currentUserId }: Props) {
     setShowMenu(false);
   }
 
-  function timeAgo(date: string) {
-    const diff = Date.now() - new Date(date).getTime();
-    const m = Math.floor(diff / 60000);
-    const h = Math.floor(m / 60);
-    const d = Math.floor(h / 24);
-    if (d > 0) return `${d}d ago`;
-    if (h > 0) return `${h}h ago`;
-    if (m > 0) return `${m}m ago`;
-    return "just now";
-  }
 
   const isAuthor = currentUserId === post.author.id;
 

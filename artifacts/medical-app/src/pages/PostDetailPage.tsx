@@ -2,6 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import PostCard, { Post } from "@/components/PostCard";
 import { createClient } from "@/lib/supabase";
+import { timeAgo, getInitials } from "@/lib/formatters";
+import { POST_SELECT_FIELDS } from "@/lib/constants";
+import { normalizePost } from "@/lib/posts";
 import { useParams, useLocation } from "wouter";
 import { Send, Trash2 } from "lucide-react";
 
@@ -18,20 +21,7 @@ interface Comment {
   };
 }
 
-function timeAgo(date: string) {
-  const diff = Date.now() - new Date(date).getTime();
-  const m = Math.floor(diff / 60000);
-  const h = Math.floor(m / 60);
-  const d = Math.floor(h / 24);
-  if (d > 0) return `${d}d ago`;
-  if (h > 0) return `${h}h ago`;
-  if (m > 0) return `${m}m ago`;
-  return "just now";
-}
 
-function getInitials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
-}
 
 export default function PostDetailPage() {
   const params = useParams<{ id: string }>();
@@ -53,13 +43,7 @@ export default function PostDetailPage() {
 
     const { data: postData } = await supabase
       .from("posts")
-      .select(`
-        id, title, content, file_url, file_type,
-        is_announcement, is_pinned, upvotes, downvotes, created_at,
-        author:profiles!author_id(id, username, full_name, avatar_url, profession),
-        community:communities!community_id(id, name, slug, icon),
-        comment_count:comments(count)
-      `)
+      .select(POST_SELECT_FIELDS)
       .eq("id", id)
       .single();
 
@@ -74,8 +58,7 @@ export default function PostDetailPage() {
           .single();
         if (voteData) userVote = voteData.vote_type;
       }
-      // @ts-ignore
-      setPost({ ...postData, comment_count: postData.comment_count?.[0]?.count || 0, user_vote: userVote });
+      setPost(normalizePost({ ...(postData as Record<string, unknown>), user_vote: userVote }));
     }
 
     const { data: commentsData } = await supabase

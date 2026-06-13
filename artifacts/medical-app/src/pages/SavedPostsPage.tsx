@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
+import LoadingList from "@/components/LoadingList";
+import EmptyState from "@/components/EmptyState";
 import { createClient } from "@/lib/supabase";
 import { Link } from "wouter";
 import { Bookmark } from "lucide-react";
@@ -70,50 +72,15 @@ export default function SavedPostsPage() {
         </div>
 
         {/* Loading */}
-        {loading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            {[1, 2, 3].map(i => (
-              <div key={i} style={{
-                height: "90px",
-                borderRadius: "var(--radius)",
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                opacity: 0.6,
-                animation: "pulse 1.5s ease-in-out infinite",
-              }} />
-            ))}
-          </div>
-        )}
+        {loading && <LoadingList count={3} height="90px" />}
 
         {/* Empty state */}
         {!loading && posts.length === 0 && (
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            minHeight: "360px",
-            background: "var(--surface)",
-            borderRadius: "var(--radius)",
-            border: "1px solid var(--border)",
-            padding: "40px",
-            textAlign: "center",
-            gap: "16px",
-          }}>
-            <div style={{ fontSize: "56px" }}>🔖</div>
-            <h2 style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: "18px",
-              color: "var(--text)",
-              margin: 0,
-            }}>
-              No saved posts yet
-            </h2>
-            <p style={{ fontSize: "14px", color: "var(--text-muted)", maxWidth: "280px", margin: 0 }}>
-              When you save a post it will appear here for easy access later.
-            </p>
-          </div>
+          <EmptyState
+            emoji="🔖"
+            title="No saved posts yet"
+            description="When you save a post it will appear here for easy access later."
+          />
         )}
 
         {/* Posts list */}

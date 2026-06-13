@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { createClient } from "@/lib/supabase";
+import { ROLE_COLORS } from "@/lib/constants";
+import type { Profile, Community } from "@/lib/types";
 import { useLocation } from "wouter";
 import {
   Users,
@@ -24,31 +26,7 @@ import {
   Clock,
 } from "lucide-react";
 
-interface Profile {
-  id: string;
-  username: string;
-  full_name: string;
-  profession: string;
-  role: string;
-  created_at: string;
-  institution?: string;
-  study_year?: string;
-  is_banned?: boolean;
-  post_count?: number;
-}
 
-interface Community {
-  id: string;
-  name: string;
-  icon?: string;
-  description?: string;
-  member_count: number;
-  post_count: number;
-  created_at: string;
-  creator_id: string;
-  is_official?: boolean;
-  is_featured?: boolean;
-}
 
 interface Report {
   id: string;
@@ -83,13 +61,7 @@ interface Stats {
   new_this_week: number;
 }
 
-const roleColors: Record<string, { bg: string; color: string }> = {
-  super_admin: { bg: "#FFF0F2", color: "#E8445A" },
-  admin: { bg: "#FFF8EC", color: "#F5A623" },
-  moderator: { bg: "#EBF5FF", color: "#2D87C8" },
-  exco: { bg: "#F5F0FF", color: "#9B6DFF" },
-  student: { bg: "#EDFFF5", color: "#3DBE7A" },
-};
+
 
 type Tab = "overview" | "users" | "posts" | "communities" | "reports" | "audit";
 
@@ -855,8 +827,8 @@ export default function AdminPage() {
                           <span
                             style={{
                               padding: "2px 8px",
-                              background: roleColors[user.role]?.bg,
-                              color: roleColors[user.role]?.color,
+                              background: ROLE_COLORS[user.role]?.bg,
+                              color: ROLE_COLORS[user.role]?.color,
                               fontSize: "11px",
                               fontWeight: 700,
                               borderRadius: "4px",
