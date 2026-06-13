@@ -1,8 +1,38 @@
 import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark } from "lucide-react";
+import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark, FileText, Download, Music } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import UserAvatar from "./UserAvatar";
+
+type MediaKind = "image" | "audio" | "video" | "document";
+
+const MEDIA_EXTENSIONS: Record<MediaKind, string[]> = {
+  image: ["png", "jpg", "jpeg", "webp", "gif"],
+  audio: ["mp3", "wav", "m4a", "aac"],
+  video: ["mp4", "mov", "webm"],
+  document: ["pdf", "docx", "txt"],
+};
+
+function getFileName(url: string): string {
+  const clean = url.split("?")[0].split("#")[0];
+  const last = clean.split("/").pop() || "file";
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
+}
+
+function resolveMediaKind(fileUrl: string, fileType?: string): MediaKind {
+  const t = fileType?.toLowerCase();
+  if (t === "image" || t === "audio" || t === "video" || t === "document") return t;
+  if (t === "pdf") return "document";
+  const ext = getFileName(fileUrl).split(".").pop()?.toLowerCase() || "";
+  for (const kind of Object.keys(MEDIA_EXTENSIONS) as MediaKind[]) {
+    if (MEDIA_EXTENSIONS[kind].includes(ext)) return kind;
+  }
+  return "document";
+}
 
 export interface Post {
   id: string;
@@ -258,23 +288,122 @@ export default function PostCard({ post, currentUserId }: Props) {
         )}
 
         {/* File Attachment */}
-        {post.file_url && (
-          <a href={post.file_url} target="_blank" rel="noopener noreferrer" style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "5px",
-            padding: "4px 8px",
-            borderRadius: "4px",
-            background: "rgba(13, 148, 136, 0.1)",
-            color: "#0D9488",
-            fontSize: "12px",
-            textDecoration: "none",
-            marginBottom: "8px",
-            width: "fit-content",
-          }}>
-            📎 {post.file_type === "pdf" ? "PDF" : "File"}
-          </a>
-        )}
+        {post.file_url && (() => {
+          const kind = resolveMediaKind(post.file_url, post.file_type);
+          const fileName = getFileName(post.file_url);
+
+          if (kind === "image") {
+            return (
+              <img
+                src={post.file_url}
+                alt={fileName}
+                loading="lazy"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  maxHeight: "480px",
+                  objectFit: "cover",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  marginBottom: "8px",
+                }}
+              />
+            );
+          }
+
+          if (kind === "video") {
+            return (
+              <video
+                src={post.file_url}
+                controls
+                preload="metadata"
+                style={{
+                  display: "block",
+                  width: "100%",
+                  maxHeight: "480px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "#000",
+                  marginBottom: "8px",
+                }}
+              />
+            );
+          }
+
+          if (kind === "audio") {
+            return (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                background: "rgba(13, 148, 136, 0.06)",
+                marginBottom: "8px",
+              }}>
+                <div style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "8px",
+                  background: "rgba(13, 148, 136, 0.12)",
+                  color: "#0D9488",
+                  flexShrink: 0,
+                }}>
+                  <Music size={18} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0, flex: 1 }}>
+                  <span style={{
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    color: "var(--text)",
+                    fontFamily: "var(--font-display)",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
+                    {fileName}
+                  </span>
+                  <audio src={post.file_url} controls preload="metadata" style={{ width: "100%", height: "32px" }} />
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <a
+              href={post.file_url}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 12px",
+                borderRadius: "20px",
+                border: "1px solid rgba(13, 148, 136, 0.3)",
+                background: "rgba(13, 148, 136, 0.1)",
+                color: "#0D9488",
+                fontSize: "12px",
+                fontFamily: "var(--font-display)",
+                fontWeight: 600,
+                textDecoration: "none",
+                marginBottom: "8px",
+                maxWidth: "100%",
+              }}
+            >
+              <FileText size={14} style={{ flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {fileName}
+              </span>
+              <Download size={14} style={{ flexShrink: 0 }} />
+            </a>
+          );
+        })()}
 
         {/* Author Row */}
         <div style={{
