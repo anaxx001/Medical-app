@@ -31,6 +31,19 @@ export function loadPrefs(): UserPrefs | null {
   return raw ? JSON.parse(raw) : null;
 }
 
+export function getPrefs(): UserPrefs | null {
+  return loadPrefs();
+}
+
+export function getGreeting(prefs: UserPrefs | null): string {
+  const hour = new Date().getHours();
+  const time =
+    hour < 12 ? "Good morning" :
+    hour < 17 ? "Good afternoon" :
+    "Good evening";
+  return prefs?.name ? `${time}, ${prefs.name}` : time;
+}
+
 export const userPrefs = {
   setTourCompleted(completed: boolean) {
     localStorage.setItem(TOUR_COMPLETED_KEY, String(completed));
