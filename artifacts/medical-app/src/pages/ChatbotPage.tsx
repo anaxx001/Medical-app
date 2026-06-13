@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import AppShell from "@/components/AppShell";
+import { createClient } from "@/lib/supabase";
 import { Send, Bot, User, Trash2, Copy, Check } from "lucide-react";
 
 interface Message {
@@ -16,8 +17,17 @@ const suggestions = [
   "Difference between MRI and CT scan",
 ];
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function formatInline(text: string): string {
-  return text
+  return escapeHtml(text)
     .replace(/\*\*(.*?)\*\*/g, '<strong style="color:var(--blue-dark);font-family:var(--font-display)">$1</strong>')
     .replace(/\*(.*?)\*/g, '<em style="color:var(--text-muted)">$1</em>')
     .replace(/`(.*?)`/g, '<code style="background:var(--surface-2);padding:1px 6px;border-radius:4px;font-size:12.5px;color:var(--green-dark)">$1</code>');
@@ -63,9 +73,13 @@ export default function ChatbotPage() {
     setInput("");
     setLoading(true);
     try {
+      const { data: { session } } = await createClient().auth.getSession();
       const res = await fetch("/api/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ messages: updatedMessages }),
       });
       const data = await res.json();

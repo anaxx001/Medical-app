@@ -1,9 +1,10 @@
 import { Router } from "express";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { verifyAuth } from "../lib/auth";
 
 const router = Router();
 
-router.post("/generate-flashcards", async (req, res) => {
+router.post("/generate-flashcards", verifyAuth, async (req, res) => {
   const { topic } = req.body as { topic?: string };
 
   if (!topic || typeof topic !== "string" || topic.trim().length < 3) {
@@ -12,7 +13,7 @@ router.post("/generate-flashcards", async (req, res) => {
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: "GEMINI_API_KEY not configured" });
+    return res.status(500).json({ error: "AI service not configured" });
   }
 
   try {
@@ -66,7 +67,7 @@ Format (return EXACTLY this structure):
     return res.json({ cards: valid, topic: topic.trim() });
   } catch (err: any) {
     console.error("Flashcard generation error:", err);
-    return res.status(500).json({ error: err.message || "Flashcard generation failed" });
+    return res.status(500).json({ error: "Flashcard generation failed" });
   }
 });
 

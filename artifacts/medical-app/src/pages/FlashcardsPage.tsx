@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
+import { createClient } from "@/lib/supabase";
 import { RotateCcw, ChevronLeft, ChevronRight, Check, X, BookOpen, Sparkles, Loader2, AlertCircle } from "lucide-react";
 
 interface Card {
@@ -100,9 +101,13 @@ export default function FlashcardsPage() {
     setAiError("");
     setAiCards([]);
     try {
+      const { data: { session } } = await createClient().auth.getSession();
       const res = await fetch("/api/generate-flashcards", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body: JSON.stringify({ topic: aiTopic.trim() }),
       });
       const data = await res.json();

@@ -1,51 +1,9 @@
-import { Router, type Request, type Response, type NextFunction } from "express";
+import { Router } from "express";
 import { db, pool, pushTokensTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+import { verifyAuth } from "../lib/auth";
 
 const router = Router();
-
-async function verifyAuth(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  const authHeader = req.headers.authorization;
-  if (!authHeader?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authorization required" });
-    return;
-  }
-
-  const token = authHeader.slice(7);
-  const supabaseUrl =
-    process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
-  const anonKey =
-    process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl) {
-    res.status(500).json({ error: "SUPABASE_URL not configured" });
-    return;
-  }
-
-  try {
-    const resp = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(anonKey ? { apikey: anonKey } : {}),
-      },
-    });
-
-    if (!resp.ok) {
-      res.status(401).json({ error: "Invalid or expired token" });
-      return;
-    }
-
-    const userData = (await resp.json()) as { id: string };
-    (req as any).authUserId = userData.id;
-    next();
-  } catch {
-    res.status(401).json({ error: "Token verification failed" });
-  }
-}
 
 router.post("/push/register", verifyAuth, async (req, res) => {
   const { userId, token, platform } = req.body as {
@@ -72,7 +30,7 @@ router.post("/push/register", verifyAuth, async (req, res) => {
       });
     return res.json({ success: true });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || "Failed to register token" });
+    return res.status(500).json({ error: "Failed to register token" });
   }
 });
 
@@ -131,7 +89,7 @@ router.post("/push/notify/reply", verifyAuth, async (req, res) => {
     await sendExpoPushNotifications(messages);
     return res.json({ sent: messages.length });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || "Failed to send notifications" });
+    return res.status(500).json({ error: "Failed to send notifications" });
   }
 });
 
@@ -209,7 +167,7 @@ router.post("/push/notify/announcement", verifyAuth, async (req, res) => {
     await sendExpoPushNotifications(messages);
     return res.json({ sent: messages.length });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || "Failed to send notifications" });
+    return res.status(500).json({ error: "Failed to send notifications" });
   }
 });
 
