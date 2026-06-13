@@ -140,6 +140,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         transform: isOpen ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         overflow: "hidden",
+        height: "100vh",
       }}
     >
       {/* Header */}
