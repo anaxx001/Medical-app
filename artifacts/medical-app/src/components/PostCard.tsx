@@ -2,37 +2,9 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { ArrowUp, ArrowDown, MessageSquare, Share2, Pin, Megaphone, MoreVertical, Bookmark, FileText, Download, Music } from "lucide-react";
 import { createClient } from "@/lib/supabase";
+import { getFileName, resolveMediaKind, timeAgo } from "@/lib/postUtils";
+import type { MediaKind } from "@/lib/postUtils";
 import UserAvatar from "./UserAvatar";
-
-type MediaKind = "image" | "audio" | "video" | "document";
-
-const MEDIA_EXTENSIONS: Record<MediaKind, string[]> = {
-  image: ["png", "jpg", "jpeg", "webp", "gif"],
-  audio: ["mp3", "wav", "m4a", "aac"],
-  video: ["mp4", "mov", "webm"],
-  document: ["pdf", "docx", "txt"],
-};
-
-function getFileName(url: string): string {
-  const clean = url.split("?")[0].split("#")[0];
-  const last = clean.split("/").pop() || "file";
-  try {
-    return decodeURIComponent(last);
-  } catch {
-    return last;
-  }
-}
-
-function resolveMediaKind(fileUrl: string, fileType?: string): MediaKind {
-  const t = fileType?.toLowerCase();
-  if (t === "image" || t === "audio" || t === "video" || t === "document") return t;
-  if (t === "pdf") return "document";
-  const ext = getFileName(fileUrl).split(".").pop()?.toLowerCase() || "";
-  for (const kind of Object.keys(MEDIA_EXTENSIONS) as MediaKind[]) {
-    if (MEDIA_EXTENSIONS[kind].includes(ext)) return kind;
-  }
-  return "document";
-}
 
 export interface Post {
   id: string;
@@ -105,17 +77,6 @@ export default function PostCard({ post, currentUserId }: Props) {
   async function handleCopyText() {
     await navigator.clipboard.writeText(post.content || post.title);
     setShowMenu(false);
-  }
-
-  function timeAgo(date: string) {
-    const diff = Date.now() - new Date(date).getTime();
-    const m = Math.floor(diff / 60000);
-    const h = Math.floor(m / 60);
-    const d = Math.floor(h / 24);
-    if (d > 0) return `${d}d ago`;
-    if (h > 0) return `${h}h ago`;
-    if (m > 0) return `${m}m ago`;
-    return "just now";
   }
 
   const isAuthor = currentUserId === post.author.id;

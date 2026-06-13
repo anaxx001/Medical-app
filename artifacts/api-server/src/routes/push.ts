@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db, pool, pushTokensTable } from "@workspace/db";
 import { eq, inArray } from "drizzle-orm";
+import { chunkArray } from "../lib/array";
 
 const router = Router();
 
@@ -230,14 +231,6 @@ async function sendExpoPushNotifications(messages: object[]): Promise<void> {
       console.error("Expo push send error:", err);
     }
   }
-}
-
-function chunkArray<T>(arr: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < arr.length; i += size) {
-    chunks.push(arr.slice(i, i + size));
-  }
-  return chunks;
 }
 
 export default router;
