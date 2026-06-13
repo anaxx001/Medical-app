@@ -28,6 +28,7 @@ import NewsPage from "@/pages/NewsPage";
 import SavedPostsPage from "@/pages/SavedPostsPage";
 import DiscoverCommunitiesPage from "@/pages/DiscoverCommunitiesPage";
 import StartCommunityPage from "@/pages/StartCommunityPage";
+import HelpPage from "@/pages/HelpPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -101,6 +102,9 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       </Route>
       <Route path="/news">
         <ProtectedRoute component={NewsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/help">
+        <ProtectedRoute component={HelpPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/admin">
         <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />

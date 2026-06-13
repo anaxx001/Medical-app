@@ -1,35 +1,20 @@
-/**
- * Shared TypeScript interfaces reused across pages and components.
- */
+// Support Ticket types
+export type TicketDepartment = "Complaints" | "Suggestions" | "Moderator/Admin Nominations" | "Technical Feedback";
 
-export interface Profile {
+export interface SupportTicket {
   id: string;
-  username: string;
-  full_name: string;
-  avatar_url?: string;
-  profession?: string;
-  bio?: string;
-  institution?: string;
-  course?: string;
-  study_year?: string;
-  role: string;
+  user_id: string;
+  user_name: string;
+  department: TicketDepartment;
+  subject: string;
+  message: string;
+  status: "open" | "in-progress" | "resolved" | "closed";
   created_at: string;
-  is_banned?: boolean;
-  post_count?: number;
+  updated_at: string;
 }
 
-export interface Community {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string;
-  description?: string;
-  member_count?: number;
-  weekly_visitors?: number;
-  topic?: string;
-  post_count?: number;
-  created_at?: string;
-  creator_id?: string;
-  is_official?: boolean;
-  is_featured?: boolean;
+export interface SupportTicketFormData {
+  department: TicketDepartment;
+  subject: string;
+  message: string;
 }
