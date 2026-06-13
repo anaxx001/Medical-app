@@ -1,47 +1,40 @@
-export type Profession =
-  | "Medical Doctor"
-  | "Radiographer"
-  | "Nurse"
-  | "Anatomist"
-  | "Pharmacist"
-  | "Physiotherapist"
-  | "Dentist"
-  | "Other";
+/**
+ * localStorage-based user preferences for onboarding & tour state
+ */
 
-export interface UserPrefs {
-  profession: Profession;
-  name?: string;
-  username?: string;
-}
+const TOUR_COMPLETED_KEY = "medstudent-tour-completed";
+const FIRST_LOGIN_SEEDS_SENT_KEY = "medstudent-first-login-seeds-sent";
+const TOUR_LAUNCHED_KEY = "medstudent-tour-launched";
 
-const KEY = "medstudent_prefs";
+export const userPrefs = {
+  // Tour completion tracking
+  setTourCompleted(completed: boolean) {
+    localStorage.setItem(TOUR_COMPLETED_KEY, String(completed));
+  },
+  isTourCompleted(): boolean {
+    return localStorage.getItem(TOUR_COMPLETED_KEY) === "true";
+  },
 
-export function getPrefs(): UserPrefs | null {
-  if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(KEY);
-  if (!raw) return null;
-  try { return JSON.parse(raw); }
-  catch { return null; }
-}
+  // First login seeds tracking
+  setFirstLoginSeedsSent(sent: boolean) {
+    localStorage.setItem(FIRST_LOGIN_SEEDS_SENT_KEY, String(sent));
+  },
+  areFirstLoginSeedsSent(): boolean {
+    return localStorage.getItem(FIRST_LOGIN_SEEDS_SENT_KEY) === "true";
+  },
 
-export function savePrefs(prefs: UserPrefs): void {
-  localStorage.setItem(KEY, JSON.stringify(prefs));
-}
+  // Tour launch tracking (for manual launch from UI)
+  setTourLaunched(launched: boolean) {
+    localStorage.setItem(TOUR_LAUNCHED_KEY, String(launched));
+  },
+  isTourLaunched(): boolean {
+    return localStorage.getItem(TOUR_LAUNCHED_KEY) === "true";
+  },
 
-export function clearPrefs(): void {
-  localStorage.removeItem(KEY);
-}
-
-export function getGreeting(profession: Profession): string {
-  const greetings: Record<Profession, string> = {
-    "Medical Doctor": "Good day, Doctor in training 👋",
-    "Radiographer": "Good day, Radiographer in training 👋",
-    "Nurse": "Good day, Nurse in training 👋",
-    "Anatomist": "Good day, Anatomist in training 👋",
-    "Pharmacist": "Good day, Pharmacist in training 👋",
-    "Physiotherapist": "Good day, Physio in training 👋",
-    "Dentist": "Good day, Dentist in training 👋",
-    "Other": "Good day, Health professional in training 👋",
-  };
-  return greetings[profession];
-}
+  // Reset all onboarding state (for testing/reset)
+  resetOnboarding() {
+    localStorage.removeItem(TOUR_COMPLETED_KEY);
+    localStorage.removeItem(FIRST_LOGIN_SEEDS_SENT_KEY);
+    localStorage.removeItem(TOUR_LAUNCHED_KEY);
+  },
+};
