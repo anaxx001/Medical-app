@@ -41,7 +41,7 @@ function Avatar({ name, avatar, size = 44 }: { name: string; avatar: string | nu
   );
 }
 
-function ComposeModal({ onClose, onSelect }: { onClose: () => void; onSelect: (userId: string) => void }) {
+function ComposeModal({ onClose, onSelect, currentUserId }: { onClose: () => void; onSelect: (userId: string) => void; currentUserId: string | undefined }) {
   const supabase = createClient();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -56,11 +56,13 @@ function ComposeModal({ onClose, onSelect }: { onClose: () => void; onSelect: (u
         .select("id, username, full_name, avatar_url, profession")
         .or(`username.ilike.%${query}%,full_name.ilike.%${query}%`)
         .limit(10);
-      setResults(data || []);
+      // BUGFIX 2: Filter out current user from search results
+      const filtered = (data || []).filter(user => user.id !== currentUserId);
+      setResults(filtered);
       setSearching(false);
     }, 300);
     return () => clearTimeout(timeout);
-  }, [query]);
+  }, [query, currentUserId]);
 
   return (
     <>
@@ -228,11 +230,14 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("messages");
   const [showCompose, setShowCompose] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | undefined>();
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/login"); return; }
+
+      setCurrentUserId(user.id);
 
       const { data } = await supabase
         .from("direct_messages")
@@ -571,7 +576,7 @@ export default function MessagesPage() {
         </button>
       )}
 
-      {/* Compose Modal */}
+      {/* Compose Modal - BUGFIX 1: Pass currentUserId to ComposeModal */}
       {showCompose && (
         <ComposeModal
           onClose={() => setShowCompose(false)}
@@ -579,6 +584,7 @@ export default function MessagesPage() {
             setShowCompose(false);
             navigate(`/messages/${userId}`);
           }}
+          currentUserId={currentUserId}
         />
       )}
     </AppShell>
