@@ -139,9 +139,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         flexDirection: "column",
         transform: isOpen ? "translateX(0)" : "translateX(-100%)",
         transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-        overflow: "hidden",
+        overflowY: "auto",
+        scrollbarWidth: "none",
+        msOverflowStyle: "none",
       }}
+      className="sidebar-no-scrollbar"
     >
+      <style>{`
+        .sidebar-no-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
       {/* Header */}
       <div style={{ padding: "16px 16px 0", flexShrink: 0 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
@@ -226,7 +234,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </div>
 
       {/* Scrollable area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "0 8px", minHeight: 0 }}>
+      <div style={{ padding: "0 8px", minHeight: "fit-content" }}>
         <nav style={{ display: "flex", flexDirection: "column", gap: "4px", paddingTop: "4px" }}>
 
           {/* Main nav items */}
