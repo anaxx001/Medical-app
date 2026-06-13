@@ -26,27 +26,35 @@ export default function SavedPostsPage() {
   const supabase = createClient();
   const [posts, setPosts] = useState<SavedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data } = await supabase
-        .from("saved_posts")
-        .select(`
-          id,
-          post:posts(
-            id, title, content, created_at,
-            community:communities(name, slug),
-            author:profiles(full_name, username)
-          )
-        `)
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        const { data, error: fetchError } = await supabase
+          .from("saved_posts")
+          .select(`
+            id,
+            post:posts(
+              id, title, content, created_at,
+              community:communities(name, slug),
+              author:profiles(full_name, username)
+            )
+          `)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
-      if (data) setPosts(data as any);
-      setLoading(false);
+        if (fetchError) throw fetchError;
+        if (data) setPosts(data as any);
+      } catch (err) {
+        console.error("Error loading saved posts:", err);
+        setError("Failed to load saved posts. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);
@@ -54,6 +62,11 @@ export default function SavedPostsPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "800px", margin: "0 auto" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "24px" }}>

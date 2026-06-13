@@ -42,29 +42,36 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login"); return; }
-      setUserId(user.id);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { navigate("/login"); return; }
+        setUserId(user.id);
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+        const { data, error: fetchError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
 
-      if (data) {
-        setFullName(data.full_name || "");
-        setUsername(data.username || "");
-        setBio(data.bio || "");
-        setInstitution(data.institution || "");
-        setProfession(data.profession || "Other");
-        // NEW: Load existing images
-        setCurrentAvatarUrl(data.avatar_url || "");
-        setCurrentCoverUrl(data.cover_url || "");
-        setAvatarPreview(data.avatar_url || null);
-        setCoverPreview(data.cover_url || null);
+        if (fetchError) throw fetchError;
+
+        if (data) {
+          setFullName(data.full_name || "");
+          setUsername(data.username || "");
+          setBio(data.bio || "");
+          setInstitution(data.institution || "");
+          setProfession(data.profession || "Other");
+          setCurrentAvatarUrl(data.avatar_url || "");
+          setCurrentCoverUrl(data.cover_url || "");
+          setAvatarPreview(data.avatar_url || null);
+          setCoverPreview(data.cover_url || null);
+        }
+      } catch (err) {
+        console.error("Error loading profile settings:", err);
+        setError("Failed to load profile settings.");
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     loadProfile();
   }, []);
@@ -233,7 +240,10 @@ export default function ProfileSettingsPage() {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Logout error:", error);
+    }
     navigate("/login");
   }
 

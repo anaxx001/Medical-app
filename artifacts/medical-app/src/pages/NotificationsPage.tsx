@@ -63,6 +63,7 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<NotificationType>("all");
   const [unreadCount, setUnreadCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   const tabs: { key: NotificationType; label: string }[] = [
     { key: "all", label: "All" },
@@ -74,47 +75,55 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        navigate("/login");
-        return;
-      }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          navigate("/login");
+          return;
+        }
 
-      const { data } = await supabase
-        .from("notifications")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        const { data, error: fetchError } = await supabase
+          .from("notifications")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
 
-      if (!data) {
+        if (fetchError) throw fetchError;
+
+        if (!data) {
+          setLoading(false);
+          return;
+        }
+
+        // Enrich notifications with user data
+        const enriched = await Promise.all(
+          data.map(async (notif) => {
+            if (notif.related_user_id) {
+              const { data: profile } = await supabase
+                .from("profiles")
+                .select("username, full_name, avatar_url")
+                .eq("id", notif.related_user_id)
+                .single();
+
+              return {
+                ...notif,
+                related_user_name: profile?.full_name || profile?.username || "Unknown",
+                related_user_avatar: profile?.avatar_url || null,
+              };
+            }
+            return notif;
+          })
+        );
+
+        setNotifications(enriched);
+        const unread = enriched.filter((n) => !n.is_read).length;
+        setUnreadCount(unread);
+      } catch (err) {
+        console.error("Error loading notifications:", err);
+        setError("Failed to load notifications. Please try again.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // Enrich notifications with user data
-      const enriched = await Promise.all(
-        data.map(async (notif) => {
-          if (notif.related_user_id) {
-            const { data: profile } = await supabase
-              .from("profiles")
-              .select("username, full_name, avatar_url")
-              .eq("id", notif.related_user_id)
-              .single();
-
-            return {
-              ...notif,
-              related_user_name: profile?.full_name || profile?.username || "Unknown",
-              related_user_avatar: profile?.avatar_url || null,
-            };
-          }
-          return notif;
-        })
-      );
-
-      setNotifications(enriched);
-      const unread = enriched.filter((n) => !n.is_read).length;
-      setUnreadCount(unread);
-      setLoading(false);
     }
     init();
   }, []);
@@ -130,7 +139,11 @@ export default function NotificationsPage() {
   });
 
   const handleMarkAsRead = async (id: string) => {
-    await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+    if (error) {
+      console.error("Error marking notification as read:", error);
+      return;
+    }
     setNotifications(notifications.map((n) => (n.id === id ? { ...n, is_read: true } : n)));
     setUnreadCount(Math.max(0, unreadCount - 1));
   };
@@ -139,16 +152,26 @@ export default function NotificationsPage() {
     const unreadIds = filteredNotifications.filter((n) => !n.is_read).map((n) => n.id);
     if (unreadIds.length === 0) return;
 
-    for (const id of unreadIds) {
-      await supabase.from("notifications").update({ is_read: true }).eq("id", id);
-    }
+    try {
+      for (const id of unreadIds) {
+        const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+        if (error) throw error;
+      }
 
-    setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
-    setUnreadCount(0);
+      setNotifications(notifications.map((n) => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Error marking all as read:", err);
+      setError("Failed to mark notifications as read.");
+    }
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("notifications").delete().eq("id", id);
+    const { error } = await supabase.from("notifications").delete().eq("id", id);
+    if (error) {
+      console.error("Error deleting notification:", error);
+      return;
+    }
     const deleted = notifications.find((n) => n.id === id);
     if (deleted && !deleted.is_read) {
       setUnreadCount(Math.max(0, unreadCount - 1));
@@ -263,6 +286,11 @@ export default function NotificationsPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "700px", margin: "0 auto" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
         {/* Header with Notifications title and Mark all as read button */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "24px" }}>
           <h1 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "28px", color: "var(--text)", margin: 0 }}>

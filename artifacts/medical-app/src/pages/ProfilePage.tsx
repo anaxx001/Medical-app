@@ -62,6 +62,7 @@ export default function ProfilePage() {
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
@@ -190,6 +191,7 @@ export default function ProfilePage() {
       setLoading(false);
     } catch (error) {
       console.error("Error fetching profile:", error);
+      setError("Failed to load profile. Please try again.");
       setLoading(false);
     }
   }, [username]);
@@ -200,20 +202,27 @@ export default function ProfilePage() {
 
   async function handleFollowToggle() {
     if (!currentUserId || !profile) return;
-    if (isFollowing) {
-      await supabase
-        .from("followers")
-        .delete()
-        .eq("follower_id", currentUserId)
-        .eq("following_id", profile.id);
-      setIsFollowing(false);
-      setFollowerCount(Math.max(0, followerCount - 1));
-    } else {
-      await supabase
-        .from("followers")
-        .insert({ follower_id: currentUserId, following_id: profile.id });
-      setIsFollowing(true);
-      setFollowerCount(followerCount + 1);
+    try {
+      if (isFollowing) {
+        const { error } = await supabase
+          .from("followers")
+          .delete()
+          .eq("follower_id", currentUserId)
+          .eq("following_id", profile.id);
+        if (error) throw error;
+        setIsFollowing(false);
+        setFollowerCount(Math.max(0, followerCount - 1));
+      } else {
+        const { error } = await supabase
+          .from("followers")
+          .insert({ follower_id: currentUserId, following_id: profile.id });
+        if (error) throw error;
+        setIsFollowing(true);
+        setFollowerCount(followerCount + 1);
+      }
+    } catch (err) {
+      console.error("Follow toggle error:", err);
+      setError("Failed to update follow status.");
     }
   }
 
@@ -262,6 +271,11 @@ export default function ProfilePage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "820px", margin: "0 auto", padding: "20px", display: "flex", flexDirection: "column", gap: "24px" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
 
         {/* HEADER */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius)", overflow: "hidden", boxShadow: "var(--shadow)" }}>

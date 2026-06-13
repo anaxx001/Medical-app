@@ -45,51 +45,62 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    setCurrentUserId(user?.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUserId(user?.id);
 
-    const { data: postData } = await supabase
-      .from("posts")
-      .select(`
-        id, title, content, file_url, file_type,
-        is_announcement, is_pinned, upvotes, downvotes, created_at,
-        author:profiles!author_id(id, username, full_name, avatar_url, profession),
-        community:communities!community_id(id, name, slug, icon),
-        comment_count:comments(count)
-      `)
-      .eq("id", id)
-      .single();
+      const { data: postData, error: postError } = await supabase
+        .from("posts")
+        .select(`
+          id, title, content, file_url, file_type,
+          is_announcement, is_pinned, upvotes, downvotes, created_at,
+          author:profiles!author_id(id, username, full_name, avatar_url, profession),
+          community:communities!community_id(id, name, slug, icon),
+          comment_count:comments(count)
+        `)
+        .eq("id", id)
+        .single();
 
-    if (postData) {
-      let userVote = null;
-      if (user) {
-        const { data: voteData } = await supabase
-          .from("post_votes")
-          .select("vote_type")
-          .eq("post_id", id)
-          .eq("user_id", user.id)
-          .single();
-        if (voteData) userVote = voteData.vote_type;
+      if (postError) throw postError;
+
+      if (postData) {
+        let userVote = null;
+        if (user) {
+          const { data: voteData } = await supabase
+            .from("post_votes")
+            .select("vote_type")
+            .eq("post_id", id)
+            .eq("user_id", user.id)
+            .single();
+          if (voteData) userVote = voteData.vote_type;
+        }
+        // @ts-ignore
+        setPost({ ...postData, comment_count: postData.comment_count?.[0]?.count || 0, user_vote: userVote });
       }
+
+      const { data: commentsData, error: commentsError } = await supabase
+        .from("comments")
+        .select(`
+          id, content, created_at,
+          author:profiles!author_id(id, username, full_name, avatar_url, profession)
+        `)
+        .eq("post_id", id)
+        .order("created_at", { ascending: true });
+
+      if (commentsError) throw commentsError;
+
       // @ts-ignore
-      setPost({ ...postData, comment_count: postData.comment_count?.[0]?.count || 0, user_vote: userVote });
+      setComments(commentsData || []);
+    } catch (err) {
+      console.error("Error loading post:", err);
+      setError("Failed to load post. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    const { data: commentsData } = await supabase
-      .from("comments")
-      .select(`
-        id, content, created_at,
-        author:profiles!author_id(id, username, full_name, avatar_url, profession)
-      `)
-      .eq("post_id", id)
-      .order("created_at", { ascending: true });
-
-    // @ts-ignore
-    setComments(commentsData || []);
-    setLoading(false);
   }, [id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -97,21 +108,31 @@ export default function PostDetailPage() {
   async function handleSubmitComment() {
     if (!newComment.trim() || !currentUserId) return;
     setSubmitting(true);
-    const { error } = await supabase.from("comments").insert({
-      post_id: id,
-      author_id: currentUserId,
-      content: newComment.trim(),
-    });
-    if (!error) {
+    try {
+      const { error } = await supabase.from("comments").insert({
+        post_id: id,
+        author_id: currentUserId,
+        content: newComment.trim(),
+      });
+      if (error) throw error;
       setNewComment("");
       fetchData();
+    } catch (err) {
+      console.error("Error posting comment:", err);
+      setError("Failed to post comment. Please try again.");
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   async function handleDeleteComment(commentId: string) {
     if (!confirm("Delete this comment?")) return;
-    await supabase.from("comments").delete().eq("id", commentId);
+    const { error } = await supabase.from("comments").delete().eq("id", commentId);
+    if (error) {
+      console.error("Error deleting comment:", error);
+      setError("Failed to delete comment.");
+      return;
+    }
     setComments(prev => prev.filter(c => c.id !== commentId));
   }
 
@@ -134,6 +155,11 @@ export default function PostDetailPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
         <PostCard post={post} currentUserId={currentUserId} />
 
         <div style={{ marginTop: "24px" }}>

@@ -23,44 +23,54 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUserId(user?.id);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setCurrentUserId(user?.id);
 
-      const { data: communityData } = await supabase
-        .from("communities")
-        .select("*")
-        .eq("slug", slug)
-        .single();
+        const { data: communityData, error: communityError } = await supabase
+          .from("communities")
+          .select("*")
+          .eq("slug", slug)
+          .single();
 
-      if (!communityData) { setLoading(false); return; }
-      setCommunity(communityData);
+        if (communityError) throw communityError;
+        if (!communityData) { setLoading(false); return; }
+        setCommunity(communityData);
 
-      const { data: postsData } = await supabase
-        .from("posts")
-        .select(`
-          id, title, content, file_url, file_type,
-          is_announcement, is_pinned, upvotes, downvotes, created_at,
-          author:profiles!author_id(id, username, full_name, avatar_url, profession),
-          community:communities!community_id(id, name, slug, icon),
-          comment_count:comments(count)
-        `)
-        .eq("community_id", communityData.id)
-        .order("upvotes", { ascending: false })
-        .limit(30);
+        const { data: postsData, error: postsError } = await supabase
+          .from("posts")
+          .select(`
+            id, title, content, file_url, file_type,
+            is_announcement, is_pinned, upvotes, downvotes, created_at,
+            author:profiles!author_id(id, username, full_name, avatar_url, profession),
+            community:communities!community_id(id, name, slug, icon),
+            comment_count:comments(count)
+          `)
+          .eq("community_id", communityData.id)
+          .order("upvotes", { ascending: false })
+          .limit(30);
 
-      setPosts(
-        // @ts-ignore
-        (postsData || []).map((p: any) => ({
-          ...p,
-          comment_count: p.comment_count?.[0]?.count || 0,
-          user_vote: null,
-        }))
-      );
-      setLoading(false);
+        if (postsError) throw postsError;
+
+        setPosts(
+          // @ts-ignore
+          (postsData || []).map((p: any) => ({
+            ...p,
+            comment_count: p.comment_count?.[0]?.count || 0,
+            user_vote: null,
+          }))
+        );
+      } catch (err) {
+        console.error("Error loading community:", err);
+        setError("Failed to load community. Please try again.");
+      } finally {
+        setLoading(false);
+      }
     }
     fetchData();
   }, [slug]);
@@ -68,6 +78,11 @@ export default function CommunityPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "720px", margin: "0 auto" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
         {community && (
           <div style={{ background: "linear-gradient(135deg, rgba(45,135,200,0.08), rgba(61,190,122,0.06))", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "20px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>

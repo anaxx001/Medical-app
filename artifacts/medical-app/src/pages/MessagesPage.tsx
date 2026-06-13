@@ -235,47 +235,55 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<Tab>("messages");
   const [showCompose, setShowCompose] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login"); return; }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { navigate("/login"); return; }
 
-      const { data } = await supabase
-        .from("direct_messages")
-        .select("*")
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .order("created_at", { ascending: false });
+        const { data, error: fetchError } = await supabase
+          .from("direct_messages")
+          .select("*")
+          .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
+          .order("created_at", { ascending: false });
 
-      if (!data) { setLoading(false); return; }
+        if (fetchError) throw fetchError;
+        if (!data) { setLoading(false); return; }
 
-      const seen = new Set<string>();
-      const conversations: DM[] = [];
+        const seen = new Set<string>();
+        const conversations: DM[] = [];
 
-      for (const msg of data) {
-        const otherId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-        if (seen.has(otherId)) continue;
-        seen.add(otherId);
+        for (const msg of data) {
+          const otherId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+          if (seen.has(otherId)) continue;
+          seen.add(otherId);
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("username, full_name, avatar_url")
-          .eq("id", otherId)
-          .single();
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("username, full_name, avatar_url")
+            .eq("id", otherId)
+            .single();
 
-        conversations.push({
-          id: msg.id,
-          other_user_id: otherId,
-          other_name: profile?.full_name || profile?.username || "Unknown",
-          other_avatar: profile?.avatar_url || null,
-          last_message: msg.content || "",
-          last_at: msg.created_at,
-          unread: !msg.is_read && msg.receiver_id === user.id,
-        });
+          conversations.push({
+            id: msg.id,
+            other_user_id: otherId,
+            other_name: profile?.full_name || profile?.username || "Unknown",
+            other_avatar: profile?.avatar_url || null,
+            last_message: msg.content || "",
+            last_at: msg.created_at,
+            unread: !msg.is_read && msg.receiver_id === user.id,
+          });
+        }
+
+        setDms(conversations);
+      } catch (err) {
+        console.error("Error loading messages:", err);
+        setError("Failed to load messages. Please try again.");
+      } finally {
+        setLoading(false);
       }
-
-      setDms(conversations);
-      setLoading(false);
     }
     init();
   }, []);
@@ -293,6 +301,11 @@ export default function MessagesPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "600px", margin: "0 auto", paddingBottom: "100px" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
 
         {/* Header */}
         <div style={{ marginBottom: "8px" }}>
