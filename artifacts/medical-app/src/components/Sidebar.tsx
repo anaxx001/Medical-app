@@ -95,7 +95,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const isActive = (href: string) => location === href;
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error("Logout error:", error);
+    }
     window.location.href = "/login";
   };
 

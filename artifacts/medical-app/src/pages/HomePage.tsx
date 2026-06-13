@@ -39,6 +39,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -100,6 +101,7 @@ export default function HomePage() {
         );
       } catch (err) {
         console.error(err);
+        setError("Failed to load posts. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -120,6 +122,11 @@ export default function HomePage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "900px", margin: "0 auto", padding: "0 0 24px" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 18px", borderRadius: "99px", border: "1px solid var(--border)", background: "var(--surface)", marginBottom: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.02)" }}>
           <Search size={18} color="var(--text-muted)" />
           <input

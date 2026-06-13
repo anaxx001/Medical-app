@@ -20,6 +20,7 @@ interface NewsPost {
 export default function NewsPage() {
   const [posts, setPosts] = useState<NewsPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const supabase = createClient();
 
@@ -49,6 +50,7 @@ export default function NewsPage() {
         if (!error && data) setPosts(data as any);
       } catch (err) {
         console.error(err);
+        setError("Failed to load campus news. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -119,6 +121,13 @@ export default function NewsPage() {
             <p style={{ fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>
               News and announcements are posted by verified campus moderators only.
             </p>
+          </div>
+        )}
+
+        {/* Error state */}
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
           </div>
         )}
 

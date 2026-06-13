@@ -44,16 +44,21 @@ export default function StartCommunityPage() {
 
   useEffect(() => {
     async function checkAuth() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      if (!session?.user) {
+        if (!session?.user) {
+          setLocation("/login");
+          return;
+        }
+
+        setAuthLoading(false);
+      } catch (err) {
+        console.error("Auth check error:", err);
         setLocation("/login");
-        return;
       }
-
-      setAuthLoading(false);
     }
 
     checkAuth();

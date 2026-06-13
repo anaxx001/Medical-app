@@ -76,29 +76,42 @@ export default function PostCard({ post, currentUserId }: Props) {
 
   async function handleVote(type: "up" | "down") {
     if (!currentUserId) return;
-    if (userVote === type) {
-      await supabase.from("post_votes").delete().match({ post_id: post.id, user_id: currentUserId });
-      setVotes(v => type === "up" ? v - 1 : v + 1);
-      setUserVote(null);
-    } else {
-      if (userVote) {
-        await supabase.from("post_votes").delete().match({ post_id: post.id, user_id: currentUserId });
-        setVotes(v => userVote === "up" ? v - 1 : v + 1);
+    try {
+      if (userVote === type) {
+        const { error } = await supabase.from("post_votes").delete().match({ post_id: post.id, user_id: currentUserId });
+        if (error) throw error;
+        setVotes(v => type === "up" ? v - 1 : v + 1);
+        setUserVote(null);
+      } else {
+        if (userVote) {
+          const { error } = await supabase.from("post_votes").delete().match({ post_id: post.id, user_id: currentUserId });
+          if (error) throw error;
+          setVotes(v => userVote === "up" ? v - 1 : v + 1);
+        }
+        const { error } = await supabase.from("post_votes").insert({ post_id: post.id, user_id: currentUserId, vote_type: type });
+        if (error) throw error;
+        setVotes(v => type === "up" ? v + 1 : v - 1);
+        setUserVote(type);
       }
-      await supabase.from("post_votes").insert({ post_id: post.id, user_id: currentUserId, vote_type: type });
-      setVotes(v => type === "up" ? v + 1 : v - 1);
-      setUserVote(type);
+    } catch (err) {
+      console.error("Vote error:", err);
     }
   }
 
   async function handleSave() {
     if (!currentUserId) return;
-    if (isSaved) {
-      await supabase.from("saved_posts").delete().match({ post_id: post.id, user_id: currentUserId });
-      setIsSaved(false);
-    } else {
-      await supabase.from("saved_posts").insert({ post_id: post.id, user_id: currentUserId });
-      setIsSaved(true);
+    try {
+      if (isSaved) {
+        const { error } = await supabase.from("saved_posts").delete().match({ post_id: post.id, user_id: currentUserId });
+        if (error) throw error;
+        setIsSaved(false);
+      } else {
+        const { error } = await supabase.from("saved_posts").insert({ post_id: post.id, user_id: currentUserId });
+        if (error) throw error;
+        setIsSaved(true);
+      }
+    } catch (err) {
+      console.error("Save error:", err);
     }
   }
 

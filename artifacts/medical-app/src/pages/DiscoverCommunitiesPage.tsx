@@ -37,6 +37,7 @@ export default function DiscoverCommunitiesPage() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [joinedCommunities, setJoinedCommunities] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
@@ -63,6 +64,7 @@ export default function DiscoverCommunitiesPage() {
         }
       } catch (err) {
         console.error("Error fetching communities:", err);
+        setError("Failed to load communities. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -83,29 +85,33 @@ export default function DiscoverCommunitiesPage() {
 
   async function handleJoinCommunity(communityId: string) {
     if (!currentUserId) {
-      // Redirect to login
       window.location.href = "/login";
       return;
     }
 
-    if (joinedCommunities.has(communityId)) {
-      // Leave community
-      await supabase
-        .from("community_members")
-        .delete()
-        .eq("user_id", currentUserId)
-        .eq("community_id", communityId);
+    try {
+      if (joinedCommunities.has(communityId)) {
+        const { error } = await supabase
+          .from("community_members")
+          .delete()
+          .eq("user_id", currentUserId)
+          .eq("community_id", communityId);
+        if (error) throw error;
 
-      const updated = new Set(joinedCommunities);
-      updated.delete(communityId);
-      setJoinedCommunities(updated);
-    } else {
-      // Join community
-      await supabase
-        .from("community_members")
-        .insert({ user_id: currentUserId, community_id: communityId });
+        const updated = new Set(joinedCommunities);
+        updated.delete(communityId);
+        setJoinedCommunities(updated);
+      } else {
+        const { error } = await supabase
+          .from("community_members")
+          .insert({ user_id: currentUserId, community_id: communityId });
+        if (error) throw error;
 
-      setJoinedCommunities(new Set([...joinedCommunities, communityId]));
+        setJoinedCommunities(new Set([...joinedCommunities, communityId]));
+      }
+    } catch (err) {
+      console.error("Join/leave community error:", err);
+      setError("Failed to update community membership.");
     }
   }
 
@@ -132,6 +138,12 @@ export default function DiscoverCommunitiesPage() {
             Find and join health-focused communities for Nigerian medical students
           </p>
         </div>
+
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px" }}>
+            {error}
+          </div>
+        )}
 
         {/* Topic Filter Chips */}
         <div style={{ marginBottom: "32px", display: "flex", gap: "8px", flexWrap: "wrap" }}>

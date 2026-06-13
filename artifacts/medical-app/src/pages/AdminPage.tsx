@@ -159,6 +159,7 @@ export default function AdminPage() {
   const [filterAuditAction, setFilterAuditAction] = useState("");
 
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -285,13 +286,18 @@ export default function AdminPage() {
       setRecentActivity(activity.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 10));
     } catch (error) {
       console.error("Error fetching admin data:", error);
+      setError("Failed to load admin data. Please try refreshing the page.");
     } finally {
       setLoading(false);
     }
   }
 
   async function updateUserRole(userId: string, newRole: string) {
-    await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
+    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
+    if (error) {
+      setError(`Failed to update role: ${error.message}`);
+      return;
+    }
 
     if (currentRole === "super_admin") {
       await supabase.from("audit_logs").insert({
@@ -306,7 +312,11 @@ export default function AdminPage() {
   }
 
   async function toggleUserSuspend(userId: string, currentStatus: boolean) {
-    await supabase.from("profiles").update({ is_banned: !currentStatus }).eq("id", userId);
+    const { error } = await supabase.from("profiles").update({ is_banned: !currentStatus }).eq("id", userId);
+    if (error) {
+      setError(`Failed to update user status: ${error.message}`);
+      return;
+    }
 
     if (currentRole === "super_admin") {
       await supabase.from("audit_logs").insert({
@@ -323,7 +333,11 @@ export default function AdminPage() {
   async function deletePost(postId: string) {
     if (!confirm("Delete this post?")) return;
 
-    await supabase.from("posts").delete().eq("id", postId);
+    const { error } = await supabase.from("posts").delete().eq("id", postId);
+    if (error) {
+      setError(`Failed to delete post: ${error.message}`);
+      return;
+    }
 
     if (currentRole === "super_admin") {
       await supabase.from("audit_logs").insert({
@@ -338,7 +352,11 @@ export default function AdminPage() {
   }
 
   async function dismissReport(reportId: string) {
-    await supabase.from("reports").update({ status: "resolved" }).eq("id", reportId);
+    const { error } = await supabase.from("reports").update({ status: "resolved" }).eq("id", reportId);
+    if (error) {
+      setError(`Failed to dismiss report: ${error.message}`);
+      return;
+    }
     setReports((prev) => prev.filter((r) => r.id !== reportId));
   }
 
@@ -346,10 +364,18 @@ export default function AdminPage() {
     const report = reports.find((r) => r.id === reportId);
     if (!report) return;
 
+    let deleteError = null;
     if (report.type === "post") {
-      await supabase.from("posts").delete().eq("id", targetId);
+      const { error } = await supabase.from("posts").delete().eq("id", targetId);
+      deleteError = error;
     } else if (report.type === "comment") {
-      await supabase.from("comments").delete().eq("id", targetId);
+      const { error } = await supabase.from("comments").delete().eq("id", targetId);
+      deleteError = error;
+    }
+
+    if (deleteError) {
+      setError(`Failed to delete reported content: ${deleteError.message}`);
+      return;
     }
 
     await supabase.from("reports").update({ status: "resolved" }).eq("id", reportId);
@@ -357,7 +383,11 @@ export default function AdminPage() {
   }
 
   async function toggleCommunityOfficial(communityId: string, currentStatus: boolean) {
-    await supabase.from("communities").update({ is_official: !currentStatus }).eq("id", communityId);
+    const { error } = await supabase.from("communities").update({ is_official: !currentStatus }).eq("id", communityId);
+    if (error) {
+      setError(`Failed to update community: ${error.message}`);
+      return;
+    }
     setCommunities((prev) =>
       prev.map((c) => (c.id === communityId ? { ...c, is_official: !currentStatus } : c))
     );
@@ -549,6 +579,12 @@ export default function AdminPage() {
   return (
     <AppShell>
       <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "20px" }}>
+        {error && (
+          <div style={{ padding: "12px 16px", marginBottom: "16px", borderRadius: "var(--radius-sm)", background: "#FEF2F2", border: "1px solid #FECACA", color: "#B91C1C", fontSize: "14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>{error}</span>
+            <button onClick={() => setError(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "#B91C1C", fontWeight: 700 }}>✕</button>
+          </div>
+        )}
         {/* Header */}
         <div style={{ marginBottom: "24px" }}>
           <h1
