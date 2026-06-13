@@ -96,6 +96,17 @@ export default function DiscoverCommunitiesPage() {
         .insert({ user_id: currentUserId, community_id: communityId });
 
       setJoinedCommunities(new Set([...joinedCommunities, communityId]));
+      
+      // BUGFIX 4: Refetch community to get updated member count
+      const { data: updatedCommunity } = await supabase
+        .from("communities")
+        .select("*")
+        .eq("id", communityId)
+        .single();
+      
+      if (updatedCommunity) {
+        setCommunities(communities.map(c => c.id === communityId ? updatedCommunity : c));
+      }
     }
   }
 
