@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { useLocation } from "wouter";
-import { X, Paperclip, ChevronUp, ChevronDown, Image, Link as LinkIcon, List } from "lucide-react";
+import { useLocation, useSearch } from "wouter";
+import { X, Paperclip, ChevronUp, ChevronDown, Image, Link as LinkIcon, List, Lock } from "lucide-react";
 
 interface Community {
   name: string;
@@ -9,15 +9,41 @@ interface Community {
   icon: string;
 }
 
+type FileCategory = "image" | "document" | "audio" | "video";
+
+const FILE_CATEGORIES: Record<FileCategory, string[]> = {
+  image: ["png", "jpg", "jpeg", "webp", "gif"],
+  document: ["pdf", "docx", "txt"],
+  audio: ["mp3", "wav", "m4a", "aac"],
+  video: ["mp4", "mov", "webm"],
+};
+
+const ACCEPTED_EXTENSIONS = Object.values(FILE_CATEGORIES)
+  .flat()
+  .map((ext) => `.${ext}`)
+  .join(",");
+
+function detectFileCategory(fileName: string): FileCategory | null {
+  const ext = fileName.split(".").pop()?.toLowerCase();
+  if (!ext) return null;
+  for (const [category, exts] of Object.entries(FILE_CATEGORIES)) {
+    if (exts.includes(ext)) return category as FileCategory;
+  }
+  return null;
+}
+
 export default function CreatePostPage() {
   const supabase = createClient();
   const [, navigate] = useLocation();
+  const search = useSearch();
+  const presetCommunitySlug = new URLSearchParams(search).get("community");
 
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [showCommunityPicker, setShowCommunityPicker] = useState(false);
+  const [communityLocked, setCommunityLocked] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -35,11 +61,31 @@ export default function CreatePostPage() {
         .select("community:communities(name, slug, icon)")
         .eq("user_id", user.id);
 
+      let list: Community[] = [];
       if (data) {
-        const list = data
+        list = data
           .map((d: any) => d.community)
           .filter(Boolean) as Community[];
         setCommunities(list);
+      }
+
+      // Auto-select + lock the community when opened from a community page
+      if (presetCommunitySlug) {
+        const joined = list.find((c) => c.slug === presetCommunitySlug);
+        if (joined) {
+          setSelectedCommunity(joined);
+          setCommunityLocked(true);
+        } else {
+          const { data: preset } = await supabase
+            .from("communities")
+            .select("name, slug, icon")
+            .eq("slug", presetCommunitySlug)
+            .single();
+          if (preset) {
+            setSelectedCommunity(preset as Community);
+            setCommunityLocked(true);
+          }
+        }
       }
     }
     load();
@@ -63,7 +109,7 @@ export default function CreatePostPage() {
       let file_url = null;
       let file_type = null;
       if (file) {
-        const ext = file.name.split(".").pop();
+        const ext = file.name.split(".").pop()?.toLowerCase();
         const path = `posts/${userId}/${Date.now()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from("materials")
@@ -73,7 +119,7 @@ export default function CreatePostPage() {
           .from("materials")
           .getPublicUrl(path);
         file_url = urlData.publicUrl;
-        file_type = ext === "pdf" ? "pdf" : "image";
+        file_type = detectFileCategory(file.name);
       }
 
       const { error: insertError } = await supabase.from("posts").insert({
@@ -132,7 +178,9 @@ export default function CreatePostPage() {
 
         {/* Community selector pill */}
         <button
-          onClick={() => setShowCommunityPicker(!showCommunityPicker)}
+          onClick={() => { if (!communityLocked) setShowCommunityPicker(!showCommunityPicker); }}
+          disabled={communityLocked}
+          title={communityLocked ? "Posting in this community" : undefined}
           style={{
             display: "flex", alignItems: "center", gap: "6px",
             padding: "8px 16px",
@@ -143,7 +191,7 @@ export default function CreatePostPage() {
             fontFamily: "var(--font-display)",
             fontWeight: 600,
             fontSize: "14px",
-            cursor: "pointer",
+            cursor: communityLocked ? "default" : "pointer",
             minWidth: "160px",
             justifyContent: "center",
           }}
@@ -152,7 +200,10 @@ export default function CreatePostPage() {
             ? <>{selectedCommunity.icon} {selectedCommunity.name}</>
             : "Select a community"
           }
-          {showCommunityPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          {communityLocked
+            ? <Lock size={13} />
+            : (showCommunityPicker ? <ChevronUp size={14} /> : <ChevronDown size={14} />)
+          }
         </button>
 
         {/* Post button */}
@@ -178,7 +229,7 @@ export default function CreatePostPage() {
       </div>
 
       {/* Community dropdown */}
-      {showCommunityPicker && (
+      {showCommunityPicker && !communityLocked && (
         <div style={{
           position: "absolute",
           top: "62px",
@@ -318,7 +369,7 @@ export default function CreatePostPage() {
           <Image size={22} />
           <input
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg"
+            accept={ACCEPTED_EXTENSIONS}
             onChange={e => setFile(e.target.files?.[0] || null)}
             style={{ display: "none" }}
           />

@@ -83,7 +83,7 @@ export default function CommunityPage() {
                 )}
               </div>
             </div>
-            <Link href="/create" style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "99px", background: "var(--gradient)", color: "white", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "13px", flexShrink: 0 }}>
+            <Link href={`/create?community=${community.slug}`} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "10px 16px", borderRadius: "99px", background: "var(--gradient)", color: "white", textDecoration: "none", fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "13px", flexShrink: 0 }}>
               <PenSquare size={14} /> Post
             </Link>
           </div>
