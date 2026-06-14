@@ -29,6 +29,8 @@ import NewsPage from "@/pages/NewsPage";
 import SavedPostsPage from "@/pages/SavedPostsPage";
 import DiscoverCommunitiesPage from "@/pages/DiscoverCommunitiesPage";
 import StartCommunityPage from "@/pages/StartCommunityPage";
+import CommunityWaitingPage from "@/pages/CommunityWaitingPage";
+import AdminCommunityReviewPage from "@/pages/AdminCommunityReviewPage";
 import HelpPage from "@/pages/HelpPage";
 import NotFound from "@/pages/not-found";
 
@@ -113,6 +115,13 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       <Route path="/admin">
         <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
+      {/* Community approval queue — access is checked inside the page
+          itself (profiles.role must be 'super_admin' or 'admin'), so this
+          stays a plain ProtectedRoute and the page redirects all other
+          roles away. */}
+      <Route path="/admin/community-requests">
+        <ProtectedRoute component={AdminCommunityReviewPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
       <Route path="/settings">
         <ProtectedRoute component={AppSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
@@ -130,6 +139,11 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       </Route>
       <Route path="/community/:slug">
         <ProtectedRoute component={CommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      {/* Creator's "Waiting Room" — shown right after submitting a new
+          community for approval. */}
+      <Route path="/community/pending/:id">
+        <ProtectedRoute component={CommunityWaitingPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/communities/discover">
         <ProtectedRoute component={DiscoverCommunitiesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
