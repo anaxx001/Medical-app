@@ -1,18 +1,21 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { createClient } from "@/lib/supabase";
+import { CheckCircle, XCircle, MessageCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
+import AppShell from "@/components/AppShell";
 
 type RequestStatus = "pending" | "info_requested" | "approved" | "rejected";
 
-interface Applicant {
-  id: string;
-  username: string | null;
-  full_name: string | null;
-  role: string | null;
-  is_verified: boolean | null;
-  rating: number | null;
-  flag_count: number | null;
+// ─── Role check ───────────────────────────────────────────────────────────────
+// Matches the actual `profiles.role` values stored in the database.
+// These are lowercase snake_case — NOT title-case strings like "Super Admin".
+const REVIEWER_ROLES = ["super_admin", "admin"] as const;
+type ReviewerRole = (typeof REVIEWER_ROLES)[number];
+
+function isReviewer(role: string | null | undefined): role is ReviewerRole {
+  return REVIEWER_ROLES.includes(role as ReviewerRole);
 }
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface CommunityRequest {
   id: string;
@@ -26,12 +29,13 @@ interface CommunityRequest {
   justification: string;
   estimated_size: string;
   status: RequestStatus;
-  created_by: string;
+  admin_message: string | null;
+  rejection_reason: string | null;
   created_at: string;
-  reviewing_admin_id: string | null;
-  reviewing_admin_name: string | null;
-  reviewing_started_at: string | null;
-  profiles: Applicant | null;
+  created_by: string;
+  // joined from profiles
+  creator_name?: string;
+  creator_avatar?: string | null;
 }
 
 const sizeLabels: Record<string, string> = {
@@ -40,588 +44,1068 @@ const sizeLabels: Record<string, string> = {
   "200_plus": "200+ (Inter-university)",
 };
 
-const rejectReasons = [
-  "Duplicate group already exists",
-  "Inappropriate or unclear name",
-  "Non-educational purpose",
-  "Insufficient justification provided",
-  "Violates community guidelines",
+const STATUS_STYLES: Record<
+  RequestStatus,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  pending: {
+    label: "Pending",
+    color: "#B45309",
+    bg: "rgba(251,191,36,0.08)",
+    border: "rgba(251,191,36,0.35)",
+  },
+  info_requested: {
+    label: "Info Requested",
+    color: "#1D4ED8",
+    bg: "rgba(59,130,246,0.08)",
+    border: "rgba(59,130,246,0.35)",
+  },
+  approved: {
+    label: "Approved",
+    color: "#0D9488",
+    bg: "rgba(13,148,136,0.08)",
+    border: "rgba(13,148,136,0.35)",
+  },
+  rejected: {
+    label: "Rejected",
+    color: "#DC2626",
+    bg: "rgba(220,38,38,0.08)",
+    border: "rgba(220,38,38,0.35)",
+  },
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function StatusBadge({ status }: { status: RequestStatus }) {
+  const s = STATUS_STYLES[status];
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "5px",
+        fontSize: "12px",
+        fontWeight: 600,
+        fontFamily: "var(--font-display)",
+        color: s.color,
+        background: s.bg,
+        border: `1px solid ${s.border}`,
+        borderRadius: "6px",
+        padding: "3px 8px",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: s.color,
+          flexShrink: 0,
+        }}
+      />
+      {s.label}
+    </span>
+  );
+}
+
+function Avatar({
+  name,
+  avatar,
+  size = 36,
+}: {
+  name: string;
+  avatar: string | null | undefined;
+  size?: number;
+}) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        flexShrink: 0,
+        background: "var(--gradient)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: size * 0.38,
+        color: "white",
+        fontFamily: "var(--font-display)",
+        fontWeight: 700,
+        overflow: "hidden",
+      }}
+    >
+      {avatar ? (
+        <img
+          src={avatar}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          alt=""
+        />
+      ) : (
+        name?.[0]?.toUpperCase() || "U"
+      )}
+    </div>
+  );
+}
+
+// ─── Request card ─────────────────────────────────────────────────────────────
+
+function RequestCard({
+  req,
+  onApprove,
+  onReject,
+  onRequestInfo,
+  actionLoading,
+}: {
+  req: CommunityRequest;
+  onApprove: (id: string) => void;
+  onReject: (id: string, reason: string) => void;
+  onRequestInfo: (id: string, message: string) => void;
+  actionLoading: string | null;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [infoMsg, setInfoMsg] = useState("");
+  const [panel, setPanel] = useState<"none" | "reject" | "info">("none");
+
+  const isBusy = actionLoading === req.id;
+
+  return (
+    <div
+      style={{
+        background: "var(--surface)",
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius)",
+        overflow: "hidden",
+        transition: "box-shadow 0.2s ease",
+      }}
+    >
+      {/* Card header -------------------------------------------------------- */}
+      <div style={{ padding: "16px 20px" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          {/* Community avatar placeholder */}
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: "10px",
+              background: "var(--gradient)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 20,
+              fontWeight: 700,
+              color: "white",
+              fontFamily: "var(--font-display)",
+              flexShrink: 0,
+            }}
+          >
+            {req.display_name.charAt(0).toUpperCase()}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                flexWrap: "wrap",
+              }}
+            >
+              <h3
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: 700,
+                  fontSize: "15px",
+                  color: "var(--text)",
+                  margin: 0,
+                }}
+              >
+                {req.display_name}
+              </h3>
+              <span
+                style={{
+                  fontSize: "13px",
+                  color: "var(--text-muted)",
+                  fontFamily: "var(--font-display)",
+                }}
+              >
+                r/{req.name}
+              </span>
+              <StatusBadge status={req.status} />
+            </div>
+
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--text-muted)",
+                margin: "4px 0 0 0",
+                lineHeight: 1.5,
+              }}
+            >
+              {req.category} ·{" "}
+              {req.is_private ? "Private" : "Public"} ·{" "}
+              {sizeLabels[req.estimated_size] ?? req.estimated_size} ·{" "}
+              {new Date(req.created_at).toLocaleDateString("en-NG", {
+                dateStyle: "medium",
+              })}
+            </p>
+          </div>
+
+          {/* Expand toggle */}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              background: "none",
+              border: "1px solid var(--border)",
+              borderRadius: "6px",
+              padding: "6px 8px",
+              cursor: "pointer",
+              color: "var(--text-muted)",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px",
+              fontSize: "12px",
+              fontFamily: "var(--font-display)",
+              fontWeight: 600,
+              flexShrink: 0,
+            }}
+          >
+            {expanded ? (
+              <>
+                Less <ChevronUp size={14} />
+              </>
+            ) : (
+              <>
+                Details <ChevronDown size={14} />
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Creator row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            marginTop: "12px",
+          }}
+        >
+          <Avatar
+            name={req.creator_name || "U"}
+            avatar={req.creator_avatar}
+            size={24}
+          />
+          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+            Submitted by{" "}
+            <strong style={{ color: "var(--text)", fontWeight: 600 }}>
+              {req.creator_name || "Unknown"}
+            </strong>
+          </span>
+        </div>
+      </div>
+
+      {/* Expanded details -------------------------------------------------- */}
+      {expanded && (
+        <div
+          style={{
+            padding: "0 20px 16px",
+            borderTop: "1px solid var(--border)",
+            paddingTop: "16px",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "13px",
+              color: "var(--text)",
+              lineHeight: 1.6,
+              margin: "0 0 12px 0",
+            }}
+          >
+            {req.description}
+          </p>
+
+          {req.tags && req.tags.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "6px",
+                marginBottom: "12px",
+              }}
+            >
+              {req.tags.map((tag) => (
+                <span
+                  key={tag}
+                  style={{
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    color: "#0D9488",
+                    background: "rgba(13,148,136,0.08)",
+                    border: "1px solid rgba(13,148,136,0.25)",
+                    borderRadius: "999px",
+                    padding: "3px 10px",
+                    fontFamily: "var(--font-display)",
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <div
+            style={{
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              padding: "12px",
+              marginBottom: "4px",
+            }}
+          >
+            <p
+              style={{
+                fontSize: "11px",
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                color: "var(--text-muted)",
+                margin: "0 0 6px 0",
+              }}
+            >
+              Justification
+            </p>
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--text)",
+                lineHeight: 1.6,
+                margin: 0,
+              }}
+            >
+              {req.justification}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Action buttons ---------------------------------------------------- */}
+      {(req.status === "pending" || req.status === "info_requested") && (
+        <div
+          style={{
+            padding: "12px 20px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            gap: "8px",
+            flexWrap: "wrap",
+            background: "var(--bg)",
+          }}
+        >
+          {/* Approve */}
+          <button
+            disabled={isBusy}
+            onClick={() => onApprove(req.id)}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              background: "#0D9488",
+              color: "white",
+              border: "none",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              fontFamily: "var(--font-display)",
+              cursor: isBusy ? "not-allowed" : "pointer",
+              opacity: isBusy ? 0.6 : 1,
+              transition: "opacity 0.15s ease",
+            }}
+          >
+            <CheckCircle size={15} />
+            Approve
+          </button>
+
+          {/* Request info */}
+          <button
+            disabled={isBusy}
+            onClick={() =>
+              setPanel((p) => (p === "info" ? "none" : "info"))
+            }
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              background: "var(--surface)",
+              color: "var(--text)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              fontFamily: "var(--font-display)",
+              cursor: isBusy ? "not-allowed" : "pointer",
+              opacity: isBusy ? 0.6 : 1,
+              transition: "opacity 0.15s ease",
+            }}
+          >
+            <MessageCircle size={15} />
+            Request Info
+          </button>
+
+          {/* Reject */}
+          <button
+            disabled={isBusy}
+            onClick={() =>
+              setPanel((p) => (p === "reject" ? "none" : "reject"))
+            }
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "8px 14px",
+              background: "var(--surface)",
+              color: "#DC2626",
+              border: "1px solid rgba(220,38,38,0.3)",
+              borderRadius: "8px",
+              fontSize: "13px",
+              fontWeight: 600,
+              fontFamily: "var(--font-display)",
+              cursor: isBusy ? "not-allowed" : "pointer",
+              opacity: isBusy ? 0.6 : 1,
+              transition: "opacity 0.15s ease",
+            }}
+          >
+            <XCircle size={15} />
+            Reject
+          </button>
+        </div>
+      )}
+
+      {/* Reject panel */}
+      {panel === "reject" && (
+        <div
+          style={{
+            padding: "12px 20px 16px",
+            borderTop: "1px solid var(--border)",
+            background: "rgba(220,38,38,0.04)",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#DC2626",
+              margin: "0 0 8px 0",
+              fontFamily: "var(--font-display)",
+            }}
+          >
+            Rejection reason (shown to the creator)
+          </p>
+          <textarea
+            rows={3}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="e.g. A very similar community already exists — consider joining r/anatomy-unilag instead."
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "10px",
+              fontSize: "13px",
+              color: "var(--text)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              outline: "none",
+              resize: "vertical",
+              fontFamily: "var(--font-body)",
+              lineHeight: 1.5,
+            }}
+          />
+          <div
+            style={{ display: "flex", gap: "8px", marginTop: "8px" }}
+          >
+            <button
+              disabled={isBusy || !rejectReason.trim()}
+              onClick={() => {
+                onReject(req.id, rejectReason.trim());
+                setPanel("none");
+              }}
+              style={{
+                padding: "8px 14px",
+                background: "#DC2626",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                fontFamily: "var(--font-display)",
+                cursor:
+                  isBusy || !rejectReason.trim()
+                    ? "not-allowed"
+                    : "pointer",
+                opacity: isBusy || !rejectReason.trim() ? 0.5 : 1,
+              }}
+            >
+              Confirm Rejection
+            </button>
+            <button
+              onClick={() => setPanel("none")}
+              style={{
+                padding: "8px 14px",
+                background: "transparent",
+                color: "var(--text-muted)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                fontFamily: "var(--font-display)",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Request-info panel */}
+      {panel === "info" && (
+        <div
+          style={{
+            padding: "12px 20px 16px",
+            borderTop: "1px solid var(--border)",
+            background: "rgba(59,130,246,0.04)",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#1D4ED8",
+              margin: "0 0 8px 0",
+              fontFamily: "var(--font-display)",
+            }}
+          >
+            Message to creator
+          </p>
+          <textarea
+            rows={3}
+            value={infoMsg}
+            onChange={(e) => setInfoMsg(e.target.value)}
+            placeholder="e.g. Could you clarify how this differs from r/med300 which already covers OAU 300L Medicine?"
+            style={{
+              width: "100%",
+              boxSizing: "border-box",
+              padding: "10px",
+              fontSize: "13px",
+              color: "var(--text)",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              outline: "none",
+              resize: "vertical",
+              fontFamily: "var(--font-body)",
+              lineHeight: 1.5,
+            }}
+          />
+          <div
+            style={{ display: "flex", gap: "8px", marginTop: "8px" }}
+          >
+            <button
+              disabled={isBusy || !infoMsg.trim()}
+              onClick={() => {
+                onRequestInfo(req.id, infoMsg.trim());
+                setPanel("none");
+              }}
+              style={{
+                padding: "8px 14px",
+                background: "#1D4ED8",
+                color: "white",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                fontFamily: "var(--font-display)",
+                cursor:
+                  isBusy || !infoMsg.trim() ? "not-allowed" : "pointer",
+                opacity: isBusy || !infoMsg.trim() ? 0.5 : 1,
+              }}
+            >
+              Send Message
+            </button>
+            <button
+              onClick={() => setPanel("none")}
+              style={{
+                padding: "8px 14px",
+                background: "transparent",
+                color: "var(--text-muted)",
+                border: "1px solid var(--border)",
+                borderRadius: "8px",
+                fontSize: "13px",
+                fontWeight: 600,
+                fontFamily: "var(--font-display)",
+                cursor: "pointer",
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
+type FilterTab = "pending" | "info_requested" | "approved" | "rejected" | "all";
+
+const FILTER_TABS: { key: FilterTab; label: string }[] = [
+  { key: "pending", label: "Pending" },
+  { key: "info_requested", label: "Info Requested" },
+  { key: "approved", label: "Approved" },
+  { key: "rejected", label: "Rejected" },
+  { key: "all", label: "All" },
 ];
 
-// Moderators can moderate existing communities but don't see this queue —
-// only these two roles can approve/reject new community requests.
-const reviewerRoles = ["Super Admin", "Admin"];
-
 export default function AdminCommunityReviewPage() {
-  const [, setLocation] = useLocation();
   const supabase = createClient();
-
-  const [checkingAccess, setCheckingAccess] = useState(true);
-  const [currentAdminId, setCurrentAdminId] = useState<string | null>(null);
-  const [currentAdminName, setCurrentAdminName] = useState<string>("Admin");
+  const [, navigate] = useLocation();
 
   const [requests, setRequests] = useState<CommunityRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  const [rejectingId, setRejectingId] = useState<string | null>(null);
-  const [selectedReason, setSelectedReason] = useState("");
-  const [infoRequestId, setInfoRequestId] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState("");
-
+  const [activeTab, setActiveTab] = useState<FilterTab>("pending");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
-  // --- Access control: Super Admins and Admins can review requests;
-  // Moderators are redirected away ---
+  // ── Auth + role guard ──────────────────────────────────────────────────────
   useEffect(() => {
-    async function checkAccess() {
+    async function init() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (!user) {
-        setLocation("/login");
+        navigate("/login");
         return;
       }
 
+      // Fetch the caller's role from profiles using the real column values
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, username, full_name")
+        .select("role")
         .eq("id", user.id)
         .single();
 
-      if (!profile || !reviewerRoles.includes(profile.role ?? "")) {
-        setLocation("/");
+      // Guard: only super_admin and admin can access this page
+      if (!isReviewer(profile?.role)) {
+        navigate("/");
         return;
       }
 
-      setCurrentAdminId(user.id);
-      setCurrentAdminName(profile.full_name || profile.username || "Admin");
-      setCheckingAccess(false);
+      await loadRequests();
     }
 
-    checkAccess();
-  }, [setLocation, supabase]);
+    init();
+  }, []);
 
-  // --- Load pending requests + applicant profile info ---
-  useEffect(() => {
-    if (checkingAccess) return;
+  // ── Data loading ───────────────────────────────────────────────────────────
+  async function loadRequests() {
+    setLoading(true);
 
-    let channel: ReturnType<typeof supabase.channel> | null = null;
-
-    async function load() {
-      const { data, error } = await supabase
-        .from("community_requests")
-        .select(
-          `*, profiles:created_by ( id, username, full_name, role, is_verified, rating, flag_count )`
-        )
-        .in("status", ["pending", "info_requested"])
-        .order("created_at", { ascending: true });
-
-      if (!error && data) {
-        setRequests(data as unknown as CommunityRequest[]);
-        if (data.length > 0 && !selectedId) {
-          setSelectedId(data[0].id);
-        }
-      }
-
-      setLoading(false);
-    }
-
-    load();
-
-    // Live updates so the queue + "currently reviewing" badges stay in
-    // sync across admins without a manual refresh.
-    channel = supabase
-      .channel("community_requests_admin")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "community_requests" },
-        () => load()
-      )
-      .subscribe();
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-    };
-  }, [checkingAccess, selectedId, supabase]);
-
-  const selected = requests.find((r) => r.id === selectedId) ?? null;
-
-  // --- "Currently reviewing" lock: claim a request when opened ---
-  useEffect(() => {
-    if (!selected || !currentAdminId) return;
-
-    // Don't steal it from another admin who's actively on it.
-    const lockedByOther =
-      selected.reviewing_admin_id &&
-      selected.reviewing_admin_id !== currentAdminId &&
-      selected.reviewing_started_at &&
-      Date.now() - new Date(selected.reviewing_started_at).getTime() <
-        5 * 60 * 1000;
-
-    if (lockedByOther) return;
-
-    supabase
+    const { data, error } = await supabase
       .from("community_requests")
-      .update({
-        reviewing_admin_id: currentAdminId,
-        reviewing_admin_name: currentAdminName,
-        reviewing_started_at: new Date().toISOString(),
-      })
-      .eq("id", selected.id)
-      .then(() => {});
-  }, [selected?.id, currentAdminId, currentAdminName, supabase]);
+      .select("*")
+      .order("created_at", { ascending: false });
 
-  // --- Approve: copy into `communities`, mark request approved ---
-  const handleApprove = async (request: CommunityRequest) => {
-    setActionLoading(request.id);
-    setActionError(null);
+    if (error || !data) {
+      setLoading(false);
+      return;
+    }
+
+    // Enrich each request with the creator's display name and avatar
+    const enriched = await Promise.all(
+      data.map(async (r) => {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("username, full_name, avatar_url")
+          .eq("id", r.created_by)
+          .single();
+
+        return {
+          ...r,
+          creator_name:
+            profile?.full_name || profile?.username || "Unknown",
+          creator_avatar: profile?.avatar_url ?? null,
+        } as CommunityRequest;
+      })
+    );
+
+    setRequests(enriched);
+    setLoading(false);
+  }
+
+  // ── Toast helper ───────────────────────────────────────────────────────────
+  function showToast(msg: string, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+  async function handleApprove(id: string) {
+    setActionLoading(id);
+
+    const req = requests.find((r) => r.id === id);
+    if (!req) {
+      setActionLoading(null);
+      return;
+    }
 
     try {
-      const { error: insertError } = await supabase.from("communities").insert({
-        name: request.name,
-        slug: request.slug,
-        display_name: request.display_name,
-        description: request.description,
-        category: request.category,
-        is_private: request.is_private,
-        tags: request.tags,
-        created_by: request.created_by,
-      });
+      // 1. Insert the community row
+      const { error: insertErr } = await supabase
+        .from("communities")
+        .insert({
+          name: req.name,
+          slug: req.slug,
+          display_name: req.display_name,
+          description: req.description,
+          category: req.category,
+          is_private: req.is_private,
+          tags: req.tags,
+          created_by: req.created_by,
+        });
 
-      if (insertError) throw insertError;
+      if (insertErr) throw insertErr;
 
-      const { error: updateError } = await supabase
+      // 2. Mark the request approved
+      const { error: updateErr } = await supabase
         .from("community_requests")
         .update({ status: "approved" })
-        .eq("id", request.id);
+        .eq("id", id);
 
-      if (updateError) throw updateError;
+      if (updateErr) throw updateErr;
 
-      // Notify the creator. Adjust the table/columns to match however
-      // your app currently sends push notifications.
+      // 3. Notify the creator
       await supabase.from("notifications").insert({
-        user_id: request.created_by,
-        type: "community_approved",
-        title: "Your community is live!",
-        body: `r/${request.name} has been approved and is now live.`,
-        link: `/community/${request.slug}`,
+        user_id: req.created_by,
+        type: "system",
+        message: `🎉 Your community r/${req.name} has been approved and is now live!`,
+        related_community_slug: req.slug,
       });
 
-      setRequests((prev) => prev.filter((r) => r.id !== request.id));
-      setSelectedId((prev) => (prev === request.id ? null : prev));
+      setRequests((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: "approved" } : r))
+      );
+      showToast(`r/${req.name} approved and is now live.`);
     } catch (err: any) {
-      setActionError(err?.message || "Could not approve this request.");
+      showToast(err?.message || "Something went wrong.", false);
     } finally {
       setActionLoading(null);
     }
-  };
+  }
 
-  // --- Reject with a reason ---
-  const handleReject = async (request: CommunityRequest, reason: string) => {
-    setActionLoading(request.id);
-    setActionError(null);
+  async function handleReject(id: string, reason: string) {
+    setActionLoading(id);
+    const req = requests.find((r) => r.id === id);
 
     try {
       const { error } = await supabase
         .from("community_requests")
         .update({ status: "rejected", rejection_reason: reason })
-        .eq("id", request.id);
+        .eq("id", id);
 
       if (error) throw error;
 
+      // Notify creator
       await supabase.from("notifications").insert({
-        user_id: request.created_by,
-        type: "community_rejected",
-        title: "Update on your community request",
-        body: `r/${request.name} wasn't approved: ${reason}`,
-        link: `/community/pending/${request.id}`,
+        user_id: req?.created_by,
+        type: "system",
+        message: `Your community request r/${req?.name} was not approved. Reason: ${reason}`,
+        related_request_id: id,
       });
 
-      setRequests((prev) => prev.filter((r) => r.id !== request.id));
-      setSelectedId((prev) => (prev === request.id ? null : prev));
-      setRejectingId(null);
-      setSelectedReason("");
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, status: "rejected", rejection_reason: reason }
+            : r
+        )
+      );
+      showToast(`r/${req?.name} rejected.`);
     } catch (err: any) {
-      setActionError(err?.message || "Could not reject this request.");
+      showToast(err?.message || "Something went wrong.", false);
     } finally {
       setActionLoading(null);
     }
-  };
+  }
 
-  // --- Request more info, keeps it in the queue ---
-  const handleRequestInfo = async (request: CommunityRequest, message: string) => {
-    setActionLoading(request.id);
-    setActionError(null);
+  async function handleRequestInfo(id: string, message: string) {
+    setActionLoading(id);
+    const req = requests.find((r) => r.id === id);
 
     try {
       const { error } = await supabase
         .from("community_requests")
         .update({ status: "info_requested", admin_message: message })
-        .eq("id", request.id);
+        .eq("id", id);
 
       if (error) throw error;
 
+      // Notify creator
       await supabase.from("notifications").insert({
-        user_id: request.created_by,
-        type: "community_info_requested",
-        title: "Admin has a question about your community",
-        body: message,
-        link: `/community/pending/${request.id}`,
+        user_id: req?.created_by,
+        type: "system",
+        message: `An admin has a question about your community request r/${req?.name}. Check the waiting room for details.`,
+        related_request_id: id,
       });
 
       setRequests((prev) =>
         prev.map((r) =>
-          r.id === request.id
+          r.id === id
             ? { ...r, status: "info_requested", admin_message: message }
             : r
         )
       );
-      setInfoRequestId(null);
-      setInfoMessage("");
+      showToast("Message sent to creator.");
     } catch (err: any) {
-      setActionError(err?.message || "Could not send this message.");
+      showToast(err?.message || "Something went wrong.", false);
     } finally {
       setActionLoading(null);
     }
-  };
-
-  if (checkingAccess || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <div className="text-slate-600">Loading...</div>
-      </div>
-    );
   }
 
+  // ── Filtered list ──────────────────────────────────────────────────────────
+  const filtered =
+    activeTab === "all"
+      ? requests
+      : requests.filter((r) => r.status === activeTab);
+
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-slate-900">
-            Community Requests
-          </h1>
-          <p className="mt-1 text-slate-600">
-            {requests.length} request{requests.length === 1 ? "" : "s"}{" "}
-            waiting for review.
-          </p>
+    <AppShell>
+      <div style={{ maxWidth: "760px", margin: "0 auto" }}>
+        {/* Header */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: "24px",
+            flexWrap: "wrap",
+            gap: "12px",
+          }}
+        >
+          <div>
+            <h1
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 800,
+                fontSize: "26px",
+                color: "var(--text)",
+                margin: 0,
+              }}
+            >
+              🏘 Community Requests
+            </h1>
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--text-muted)",
+                margin: "4px 0 0 0",
+              }}
+            >
+              Review, approve, or reject community creation requests.
+            </p>
+          </div>
+
+          {pendingCount > 0 && (
+            <span
+              style={{
+                fontSize: "13px",
+                fontWeight: 700,
+                fontFamily: "var(--font-display)",
+                color: "#B45309",
+                background: "rgba(251,191,36,0.12)",
+                border: "1px solid rgba(251,191,36,0.4)",
+                borderRadius: "8px",
+                padding: "6px 12px",
+              }}
+            >
+              {pendingCount} awaiting review
+            </span>
+          )}
         </div>
 
-        {requests.length === 0 ? (
-          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500 shadow-sm">
-            Nothing in the queue. New community requests will show up here.
+        {/* Filter tabs */}
+        <div
+          style={{
+            display: "flex",
+            gap: "6px",
+            marginBottom: "20px",
+            overflowX: "auto",
+            paddingBottom: "4px",
+          }}
+        >
+          {FILTER_TABS.map((tab) => {
+            const count =
+              tab.key === "all"
+                ? requests.length
+                : requests.filter((r) => r.status === tab.key).length;
+
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontWeight: isActive ? 600 : 500,
+                  fontSize: "13px",
+                  padding: "7px 12px",
+                  borderRadius: "6px",
+                  border: isActive
+                    ? "1px solid var(--border)"
+                    : "1px solid transparent",
+                  background: isActive ? "var(--surface)" : "transparent",
+                  color: isActive ? "var(--text)" : "var(--text-muted)",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "5px",
+                }}
+              >
+                {tab.label}
+                {count > 0 && (
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background: isActive
+                        ? "var(--bg)"
+                        : "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "999px",
+                      padding: "1px 6px",
+                      color: "var(--text-muted)",
+                    }}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                style={{
+                  height: "88px",
+                  borderRadius: "var(--radius)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--border)",
+                  opacity: 0.6,
+                }}
+              />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "60px 20px",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "56px", marginBottom: "16px", opacity: 0.5 }}>
+              <Clock size={48} color="var(--text-muted)" />
+            </div>
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: "17px",
+                color: "var(--text)",
+                margin: "0 0 6px 0",
+              }}
+            >
+              No {activeTab === "all" ? "" : activeTab.replace("_", " ")}{" "}
+              requests
+            </h2>
+            <p
+              style={{
+                fontSize: "13px",
+                color: "var(--text-muted)",
+                maxWidth: "260px",
+              }}
+            >
+              {activeTab === "pending"
+                ? "You're all caught up — no pending requests right now."
+                : "Nothing to show here yet."}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
-            {/* Queue list */}
-            <div className="space-y-2">
-              {requests.map((req) => {
-                const isActive = req.id === selectedId;
-                const lockedByOther =
-                  req.reviewing_admin_id &&
-                  req.reviewing_admin_id !== currentAdminId &&
-                  req.reviewing_started_at &&
-                  Date.now() - new Date(req.reviewing_started_at).getTime() <
-                    5 * 60 * 1000;
-
-                return (
-                  <button
-                    key={req.id}
-                    onClick={() => setSelectedId(req.id)}
-                    className={`w-full rounded-xl border p-4 text-left transition ${
-                      isActive
-                        ? "border-teal-600 bg-white shadow-sm"
-                        : "border-slate-200 bg-white hover:border-teal-300"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-900">
-                        r/{req.name}
-                      </span>
-                      {req.status === "info_requested" && (
-                        <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                          Info requested
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {req.display_name}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      {new Date(req.created_at).toLocaleDateString("en-NG", {
-                        dateStyle: "medium",
-                      })}
-                    </p>
-                    {lockedByOther && (
-                      <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        {req.reviewing_admin_name} is reviewing this
-                      </p>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Detail panel */}
-            {selected && (
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                {/* Reviewing badge */}
-                {selected.reviewing_admin_id &&
-                  selected.reviewing_admin_id !== currentAdminId &&
-                  selected.reviewing_started_at &&
-                  Date.now() -
-                    new Date(selected.reviewing_started_at).getTime() <
-                    5 * 60 * 1000 && (
-                    <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                      <span className="inline-block h-2 w-2 rounded-full bg-amber-500" />
-                      {selected.reviewing_admin_name} is currently reviewing
-                      this request.
-                    </div>
-                  )}
-
-                {/* Header */}
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold text-slate-900">
-                      r/{selected.name}
-                    </h2>
-                    <p className="text-slate-600">{selected.display_name}</p>
-                  </div>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium uppercase tracking-wide text-slate-600">
-                    {selected.category}
-                  </span>
-                </div>
-
-                {/* Applicant profile shortcut */}
-                {selected.profiles && (
-                  <button
-                    onClick={() =>
-                      setLocation(`/u/${selected.profiles?.username ?? selected.created_by}`)
-                    }
-                    className="mt-4 flex w-full items-center gap-3 rounded-xl border border-slate-200 p-3 text-left hover:border-teal-300"
-                  >
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-600 text-sm font-bold text-white">
-                      {(selected.profiles.full_name ?? selected.profiles.username ?? "?")
-                        .charAt(0)
-                        .toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-slate-900">
-                          {selected.profiles.full_name ?? selected.profiles.username}
-                        </span>
-                        {selected.profiles.is_verified && (
-                          <span className="rounded-full bg-teal-50 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700">
-                            Verified
-                          </span>
-                        )}
-                        {(selected.profiles.flag_count ?? 0) > 0 && (
-                          <span className="rounded-full bg-red-50 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                            {selected.profiles.flag_count} flag
-                            {selected.profiles.flag_count === 1 ? "" : "s"}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-slate-500">
-                        u/{selected.profiles.username}
-                      </p>
-                    </div>
-                    {selected.profiles.rating != null && (
-                      <span className="text-sm font-semibold text-slate-700">
-                        ★ {selected.profiles.rating.toFixed(1)}
-                      </span>
-                    )}
-                  </button>
-                )}
-
-                {/* Details */}
-                <div className="mt-5 space-y-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-400">
-                      Description
-                    </p>
-                    <p className="mt-1 text-sm text-slate-700">
-                      {selected.description}
-                    </p>
-                  </div>
-
-                  {selected.tags && selected.tags.length > 0 && (
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">
-                        Tags
-                      </p>
-                      <div className="mt-1 flex flex-wrap gap-2">
-                        {selected.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">
-                        Visibility
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
-                        {selected.is_private ? "Private" : "Public"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">
-                        Estimated Size
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">
-                        {sizeLabels[selected.estimated_size] ??
-                          selected.estimated_size}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg border border-teal-100 bg-teal-50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-                      Justification
-                    </p>
-                    <p className="mt-1 text-sm text-slate-700">
-                      {selected.justification}
-                    </p>
-                  </div>
-
-                  {selected.status === "info_requested" &&
-                    selected.admin_message && (
-                      <div className="rounded-lg border border-blue-100 bg-blue-50 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">
-                          Info requested
-                        </p>
-                        <p className="mt-1 text-sm text-slate-700">
-                          "{selected.admin_message}" — awaiting reply
-                        </p>
-                      </div>
-                    )}
-                </div>
-
-                {actionError && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                    {actionError}
-                  </div>
-                )}
-
-                {/* Quick actions */}
-                <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <button
-                    onClick={() => handleApprove(selected)}
-                    disabled={actionLoading === selected.id}
-                    className="rounded-lg bg-teal-600 px-4 py-3 font-medium text-white transition hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {actionLoading === selected.id ? "Working..." : "Approve"}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setRejectingId(
-                        rejectingId === selected.id ? null : selected.id
-                      );
-                      setInfoRequestId(null);
-                    }}
-                    className={`rounded-lg border px-4 py-3 font-medium transition ${
-                      rejectingId === selected.id
-                        ? "border-red-600 bg-red-600 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-red-300"
-                    }`}
-                  >
-                    Reject with Reason
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setInfoRequestId(
-                        infoRequestId === selected.id ? null : selected.id
-                      );
-                      setRejectingId(null);
-                    }}
-                    className={`rounded-lg border px-4 py-3 font-medium transition ${
-                      infoRequestId === selected.id
-                        ? "border-amber-500 bg-amber-500 text-white"
-                        : "border-slate-300 bg-white text-slate-700 hover:border-amber-300"
-                    }`}
-                  >
-                    Request Info
-                  </button>
-                </div>
-
-                {/* Reject reason picker */}
-                {rejectingId === selected.id && (
-                  <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
-                    <p className="mb-2 text-sm font-semibold text-red-700">
-                      Select a reason
-                    </p>
-                    <div className="space-y-2">
-                      {rejectReasons.map((reason) => (
-                        <button
-                          key={reason}
-                          onClick={() => setSelectedReason(reason)}
-                          className={`flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left text-sm transition ${
-                            selectedReason === reason
-                              ? "border-red-600 bg-white font-medium text-slate-900"
-                              : "border-red-100 bg-white/60 text-slate-600"
-                          }`}
-                        >
-                          {reason}
-                          {selectedReason === reason && <span>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => handleReject(selected, selectedReason)}
-                      disabled={!selectedReason || actionLoading === selected.id}
-                      className="mt-3 w-full rounded-lg bg-red-600 px-4 py-2 font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Send Rejection
-                    </button>
-                  </div>
-                )}
-
-                {/* Request info message box */}
-                {infoRequestId === selected.id && (
-                  <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                    <p className="mb-2 text-sm font-semibold text-amber-700">
-                      Message to creator
-                    </p>
-                    <textarea
-                      rows={3}
-                      value={infoMessage}
-                      onChange={(e) => setInfoMessage(e.target.value)}
-                      placeholder="e.g. Could you clarify how this differs from r/anatomyhub which already covers UNILAG 200L?"
-                      className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
-                    />
-                    <button
-                      onClick={() => handleRequestInfo(selected, infoMessage)}
-                      disabled={!infoMessage.trim() || actionLoading === selected.id}
-                      className="mt-2 w-full rounded-lg bg-amber-500 px-4 py-2 font-medium text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Send Message
-                    </button>
-                  </div>
-                )}
-
-                <p className="mt-4 text-xs text-slate-400">
-                  Approve and Reject are final and notify the creator
-                  immediately. Request Info keeps this in the queue for the
-                  whole admin team.
-                </p>
-              </div>
-            )}
+          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+            {filtered.map((req) => (
+              <RequestCard
+                key={req.id}
+                req={req}
+                onApprove={handleApprove}
+                onReject={handleReject}
+                onRequestInfo={handleRequestInfo}
+                actionLoading={actionLoading}
+              />
+            ))}
           </div>
         )}
       </div>
-    </div>
+
+      {/* Toast */}
+      {toast && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: "24px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: toast.ok ? "#0D9488" : "#DC2626",
+            color: "white",
+            padding: "10px 20px",
+            borderRadius: "8px",
+            fontSize: "13px",
+            fontWeight: 600,
+            fontFamily: "var(--font-display)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.2)",
+            zIndex: 9999,
+            whiteSpace: "nowrap",
+          }}
+        >
+          {toast.msg}
+        </div>
+      )}
+    </AppShell>
   );
 }
