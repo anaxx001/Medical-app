@@ -13,6 +13,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import PostDetailPage from "@/pages/PostDetailPage";
 import ProfilePage from "@/pages/ProfilePage";
 import MessagesPage from "@/pages/MessagesPage";
+import ChatPage from "@/pages/ChatPage";
 import AdminPage from "@/pages/AdminPage";
 import AppSettingsPage from "@/pages/AppSettingsPage";
 import ProfileSettingsPage from "@/pages/ProfileSettingsPage";
@@ -96,6 +97,9 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       </Route>
       <Route path="/messages">
         <ProtectedRoute component={MessagesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/messages/:userId">
+        <ProtectedRoute component={ChatPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/notifications">
         <ProtectedRoute component={NotificationsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
