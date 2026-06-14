@@ -241,8 +241,9 @@ export default function ChatPage() {
         vanish_at: vanishAt,
       });
       if (error) {
-        setMessages(prev => prev.filter(m => m.id !== optimistic.id));
-        setInput(content);
+  setMessages(prev => prev.filter(m => m.id !== optimistic.id));
+  setInput(content);
+  alert(error.message); // ADD THIS LINE
       }
     }
     setSending(false);
