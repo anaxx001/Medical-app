@@ -561,8 +561,175 @@ const isSuperAdmin = effectiveRole === "super_admin";
         flexDirection: "column",
         overflow: "hidden",
       }}>
-        <SidebarContent />
+        <div style={{
+  flex: 1,
+  overflowY: "auto",
+  padding: "12px",
+}}>
+  {/* User Profile Card */}
+  {user && (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: "var(--bg)",
+        borderRadius: "12px",
+        padding: "14px",
+        marginBottom: "16px",
+        border: "1px solid var(--border)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{
+          width: "44px",
+          height: "44px",
+          borderRadius: "50%",
+          background: profile?.avatar_url
+            ? `url(${profile.avatar_url}) center/cover`
+            : "linear-gradient(135deg, #0D9488, #14B8A6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          fontWeight: 600,
+          fontSize: "14px",
+          flexShrink: 0,
+        }}>
+          {!profile?.avatar_url && (profile?.full_name?.charAt(0) || user.email?.charAt(0) || "?").toUpperCase()}
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 600,
+            fontSize: "14px",
+            color: "var(--text)",
+            margin: "0 0 2px 0",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}>
+            {profile?.full_name || user.email?.split("@")[0] || "User"}
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <p style={{
+              fontSize: "12px",
+              color: "var(--text-muted)",
+              margin: 0,
+            }}>
+              {profile?.profession || "Medical Student"}
+            </p>
+            {isSuperAdmin && (
+              <span style={{
+                padding: "2px 6px",
+                borderRadius: "4px",
+                background: "#FFF8EC",
+                color: "#F5A623",
+                fontSize: "10px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+              }}>
+                <Crown size={10} style={{ display: "inline", marginRight: "2px" }} />
+                Admin
+              </span>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* Stats */}
+      <div style={{
+        display: "flex",
+        gap: "12px",
+        marginTop: "12px",
+        paddingTop: "12px",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 2px 0" }}>
+            {profile?.followers_count || 0}
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>Followers</p>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 2px 0" }}>
+            {profile?.following_count || 0}
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>Following</p>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 2px 0" }}>
+            {profile?.upvotes_count || 0}
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>Upvotes</p>
+        </div>
+      </div>
+    </motion.div>
+  )}
+
+  {/* MAIN - Quick Access */}
+  <SectionHeader title="Feeds" />
+  {mainLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* COMMUNITIES */}
+  <SectionHeader title="Communities" />
+  {communityLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* Joined Communities */}
+  {joinedCommunities.length > 0 && (
+    <>
+      <SectionHeader title="My Communities" />
+      {joinedCommunities.map((comm) => (
+        <CommunityLinkItem
+          key={comm.id}
+          iconUrl={comm.icon}
+          label={comm.name}
+          path={`/community/${comm.slug}`}
+        />
+      ))}
+    </>
+  )}
+
+  {/* Created Communities */}
+  {createdCommunities.length > 0 && (
+    <>
+      <SectionHeader title="Created by Me" />
+      {createdCommunities.map((comm) => (
+        <CommunityLinkItem
+          key={comm.id}
+          iconUrl={comm.icon}
+          label={comm.name}
+          path={`/community/${comm.slug}`}
+        />
+      ))}
+    </>
+  )}
+
+  {/* PERSONAL */}
+  <SectionHeader title="Personal" />
+  {personalLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* STUDY */}
+  <SectionHeader title="Study" />
+  {studyLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* ADMIN */}
+  {isAdmin && (
+    <>
+      <SectionHeader title="Moderation" />
+      {adminLinks.map((link) => (
+        <LinkItem key={link.path} {...link} />
+      ))}
+    </>
+  )}
+</div>
     );
   }
 
@@ -607,7 +774,176 @@ const isSuperAdmin = effectiveRole === "super_admin";
                 overflow: "hidden",
               }}
             >
-              <SidebarContent />
+              <div style={{
+  flex: 1,
+  overflowY: "auto",
+  padding: "12px",
+}}>
+  {/* User Profile Card */}
+  {user && (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        background: "var(--bg)",
+        borderRadius: "12px",
+        padding: "14px",
+        marginBottom: "16px",
+        border: "1px solid var(--border)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+        <div style={{
+          width: "44px",
+          height: "44px",
+          borderRadius: "50%",
+          background: profile?.avatar_url
+            ? `url(${profile.avatar_url}) center/cover`
+            : "linear-gradient(135deg, #0D9488, #14B8A6)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "white",
+          fontWeight: 600,
+          fontSize: "14px",
+          flexShrink: 0,
+        }}>
+          {!profile?.avatar_url && (profile?.full_name?.charAt(0) || user.email?.charAt(0) || "?").toUpperCase()}
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{
+            fontFamily: "var(--font-display)",
+            fontWeight: 600,
+            fontSize: "14px",
+            color: "var(--text)",
+            margin: "0 0 2px 0",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}>
+            {profile?.full_name || user.email?.split("@")[0] || "User"}
+          </p>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <p style={{
+              fontSize: "12px",
+              color: "var(--text-muted)",
+              margin: 0,
+            }}>
+              {profile?.profession || "Medical Student"}
+            </p>
+            {isSuperAdmin && (
+              <span style={{
+                padding: "2px 6px",
+                borderRadius: "4px",
+                background: "#FFF8EC",
+                color: "#F5A623",
+                fontSize: "10px",
+                fontWeight: 700,
+                textTransform: "uppercase",
+              }}>
+                <Crown size={10} style={{ display: "inline", marginRight: "2px" }} />
+                Admin
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{
+        display: "flex",
+        gap: "12px",
+        marginTop: "12px",
+        paddingTop: "12px",
+        borderTop: "1px solid var(--border)",
+      }}>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 2px 0" }}>
+            {profile?.followers_count || 0}
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>Followers</p>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 2px 0" }}>
+            {profile?.following_count || 0}
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>Following</p>
+        </div>
+        <div style={{ textAlign: "center", flex: 1 }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: "0 0 2px 0" }}>
+            {profile?.upvotes_count || 0}
+          </p>
+          <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>Upvotes</p>
+        </div>
+      </div>
+    </motion.div>
+  )}
+
+  {/* MAIN - Quick Access */}
+  <SectionHeader title="Feeds" />
+  {mainLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* COMMUNITIES */}
+  <SectionHeader title="Communities" />
+  {communityLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* Joined Communities */}
+  {joinedCommunities.length > 0 && (
+    <>
+      <SectionHeader title="My Communities" />
+      {joinedCommunities.map((comm) => (
+        <CommunityLinkItem
+          key={comm.id}
+          iconUrl={comm.icon}
+          label={comm.name}
+          path={`/community/${comm.slug}`}
+        />
+      ))}
+    </>
+  )}
+
+  {/* Created Communities */}
+  {createdCommunities.length > 0 && (
+    <>
+      <SectionHeader title="Created by Me" />
+      {createdCommunities.map((comm) => (
+        <CommunityLinkItem
+          key={comm.id}
+          iconUrl={comm.icon}
+          label={comm.name}
+          path={`/community/${comm.slug}`}
+        />
+      ))}
+    </>
+  )}
+
+  {/* PERSONAL */}
+  <SectionHeader title="Personal" />
+  {personalLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* STUDY */}
+  <SectionHeader title="Study" />
+  {studyLinks.map((link) => (
+    <LinkItem key={link.path} {...link} />
+  ))}
+
+  {/* ADMIN */}
+  {isAdmin && (
+    <>
+      <SectionHeader title="Moderation" />
+      {adminLinks.map((link) => (
+        <LinkItem key={link.path} {...link} />
+      ))}
+    </>
+  )}
+</div>
+                
             </motion.div>
           </>
         )}
