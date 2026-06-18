@@ -335,10 +335,12 @@ const isSuperAdmin = effectiveRole === "super_admin";
 
       {/* Scrollable Content */}
       <div style={{
-        flex: 1,
-        overflowY: "auto",
-        padding: "12px",
-      }}>
+  flex: 1,
+  overflowY: "auto",
+  overflowX: "hidden",
+  padding: "12px",
+  WebkitOverflowScrolling: "touch",
+}}>
         {/* User Profile Card */}
         {user && (
           <motion.div
