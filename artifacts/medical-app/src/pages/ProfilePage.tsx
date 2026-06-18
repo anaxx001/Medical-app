@@ -380,9 +380,12 @@ export default function ProfilePage() {
         .from("profiles").upload(filePath, file, { upsert: true });
       if (uploadError) throw uploadError;
       const { data: { publicUrl } } = supabase.storage.from("profiles").getPublicUrl(filePath);
-      const cacheBustedUrl = `${publicUrl}?t=${Date.now()}`;
-      await supabase.from("profiles").update({ banner_url: publicUrl }).eq("id", profile.id);
-      setProfile({ ...profile, banner_url: cacheBustedUrl });
+      const { error: updateError } = await supabase
+  .from("profiles")
+  .update({ banner_url: publicUrl })
+  .eq("id", profile.id);
+if (updateError) throw updateError; // now caught by the catch block → shows alert
+setProfile({ ...profile, banner_url: cacheBustedUrl });
     } catch (err) {
       console.error("Banner upload failed:", err);
       alert("Failed to upload banner. Please try again.");
