@@ -730,7 +730,10 @@ const isSuperAdmin = effectiveRole === "super_admin";
     </>
   )}
 </div>
-
+        </div>      
+      );           
+    }              
+    
   // Mobile: Slide-out drawer
   return (
     <>
