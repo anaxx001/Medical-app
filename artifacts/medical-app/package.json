@@ -75,6 +75,7 @@
     "@google/generative-ai": "^0.21.0",
     "@ionic/react": "^8.5.5",
     "@supabase/ssr": "^0.10.3",
+    "ionicons": "^7.4.0"
     "@supabase/supabase-js": "^2.107.0",
     "react-router-dom": "^6.28.0"
   }
