@@ -21,7 +21,7 @@ import {
   Pencil,
   Newspaper,
 } from "lucide-react";
-import AnimatedPage from "@/components/AnimatedPage";
+import AnimatedPage from "@/components/animations/AnimatedPage";
 import StaggerChildren from "@/components/animations/StaggerChildren";
 
 interface UserStats {
