@@ -213,7 +213,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             position: "fixed",
             inset: 0,
             background: "rgba(0,0,0,0.4)",
-            zIndex: 55,
+            zIndex: 45,
             
           }}
         />
