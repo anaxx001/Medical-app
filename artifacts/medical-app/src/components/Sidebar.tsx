@@ -43,8 +43,9 @@ export default function Sidebar({ isOpen, onClose, userRole = "user" }: SidebarP
   const [isDesktop, setIsDesktop] = useState(false);
 
   // SUPER ADMIN check - includes all admin roles
-  const isAdmin = ["admin", "app_admin", "super_admin", "moderator"].includes(userRole);
-  const isSuperAdmin = userRole === "super_admin";
+  const effectiveRole = profile?.role || userRole; // profile.role wins once loaded
+const isAdmin = ["admin", "app_admin", "super_admin", "moderator"].includes(effectiveRole);
+const isSuperAdmin = effectiveRole === "super_admin";
 
   useEffect(() => {
     loadUser();
