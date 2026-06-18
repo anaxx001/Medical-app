@@ -60,7 +60,7 @@ interface SuggestedPrompt {
 const SUGGESTED_PROMPTS: SuggestedPrompt[] = [
   { icon: flask, text: 'Help me structure a literature review on malaria in pregnancy', category: 'Research' },
   { icon: heartPulse, text: 'Explain the pathophysiology of heart failure in simple terms', category: 'Study' },
-  { icon: brain, text: 'I'm feeling overwhelmed with exams. Any coping strategies?', category: 'Wellness' },
+  { icon: brain, text: 'I/'m feeling overwhelmed with exams. Any coping strategies?', category: 'Wellness' },
   { icon: bookOpen, text: 'What are the best free research databases for Nigerian medical students?', category: 'Resources' },
   { icon: lightbulb, text: 'How do I choose a research topic for my final year project?', category: 'Research' },
   { icon: alertCircle, text: 'Walk me through writing a case report step by step', category: 'Research' },
