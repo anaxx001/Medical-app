@@ -11,3 +11,6 @@ export function createClient() {
   }
   return clientInstance;
 }
+
+// Singleton export for direct import
+export const supabase = createClient();
