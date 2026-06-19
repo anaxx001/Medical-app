@@ -1,0 +1,256 @@
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { AuthProvider } from "@/hooks/useAuth";
+import SplashScreen from "@/components/SplashScreen";
+import HomePage from "@/pages/HomePage";
+import ChatbotPage from "@/pages/ChatbotPage";
+import LoginPage from "@/pages/LoginPage";
+import SignupPage from "@/pages/SignupPage";
+import ForgotPasswordPage from "@/pages/ForgotPasswordPage";
+import DashboardPage from "@/pages/DashboardPage";
+import PostDetailPage from "@/pages/PostDetailPage";
+import ProfilePage from "@/pages/ProfilePage";
+import MessagesPage from "@/pages/MessagesPage";
+import ChatPage from "@/pages/ChatPage";
+import AdminPage from "@/pages/AdminPage";
+import AppSettingsPage from "@/pages/AppSettingsPage";
+import ProfileSettingsPage from "@/pages/ProfileSettingsPage";
+import CommunityPage from "@/pages/CommunityPage";
+import CreatePostPage from "@/pages/CreatePostPage";
+import FlashcardsPage from "@/pages/FlashcardsPage";
+import QuizPage from "@/pages/QuizPage";
+import NotesPage from "@/pages/NotesPage";
+import MaterialsPage from "@/pages/MaterialsPage";
+import PastQuestionsPage from "@/pages/PastQuestionsPage";
+import NotificationsPage from "@/pages/NotificationsPage";
+import NewsPage from "@/pages/NewsPage";
+import NewsDetailPage from "@/pages/NewsDetailPage";
+import CreateNewsPage from "@/pages/CreateNewsPage";
+import EditNewsPage from "@/pages/EditNewsPage";
+import SavedPostsPage from "@/pages/SavedPostsPage";
+import DiscoverCommunitiesPage from "@/pages/DiscoverCommunitiesPage";
+import StartCommunityPage from "@/pages/StartCommunityPage";
+import CommunityWaitingPage from "@/pages/CommunityWaitingPage";
+import CommunityManagePage from "@/pages/CommunityManagePage";
+import CommunityCreatePostPage from "@/pages/CommunityCreatePostPage";
+import AdminCommunityReviewPage from "@/pages/AdminCommunityReviewPage";
+import HelpPage from "@/pages/HelpPage";
+import NotFound from "@/pages/not-found";
+
+const queryClient = new QueryClient();
+
+interface ProtectedRouteProps {
+  component: React.ComponentType<any>;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+}
+
+function ProtectedRoute({ component: Component, isAuthenticated, isLoading }: ProtectedRouteProps) {
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--bg)",
+      }}>
+        <div style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "50%",
+          border: "3px solid var(--border)",
+          borderTop: "3px solid #0D9488",
+          animation: "spin 0.8s linear infinite",
+        }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Redirect to="/login" />;
+  }
+
+  return <Component />;
+}
+
+function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLoading: boolean }) {
+  return (
+    <Switch>
+      <Route path="/login" component={LoginPage} />
+      <Route path="/signup" component={SignupPage} />
+      <Route path="/forgot-password" component={ForgotPasswordPage} />
+
+      <Route path="/">
+        <ProtectedRoute component={HomePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/feed">
+        <ProtectedRoute component={HomePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/dashboard">
+        <ProtectedRoute component={DashboardPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/chatbot">
+        <ProtectedRoute component={ChatbotPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/post/:id">
+        <ProtectedRoute component={PostDetailPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/profile/:username">
+        <ProtectedRoute component={ProfilePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/messages">
+        <ProtectedRoute component={MessagesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/messages/:userId">
+        <ProtectedRoute component={ChatPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/notifications">
+        <ProtectedRoute component={NotificationsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/news">
+        <ProtectedRoute component={NewsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/news/create">
+        <ProtectedRoute component={CreateNewsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      {/* Bug #8 fix: /news/edit/:id must be above /news/:id — wouter matches top-down
+          and :id would greedily match "edit" before this route ever runs */}
+      <Route path="/news/edit/:id">
+        <ProtectedRoute component={EditNewsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/news/:id">
+        <ProtectedRoute component={NewsDetailPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/help">
+        <ProtectedRoute component={HelpPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      {/* Bug #11 fix: sidebar links to /admin/ai-models — must be above /admin to avoid prefix conflicts */}
+      <Route path="/admin/ai-models">
+        <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/admin/community-requests">
+        <ProtectedRoute component={AdminCommunityReviewPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute component={AppSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/app-settings">
+        <ProtectedRoute component={AppSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/profile-settings">
+        <ProtectedRoute component={ProfileSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/saved">
+        <ProtectedRoute component={SavedPostsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/c/:slug">
+        <ProtectedRoute component={CommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/community/:slug">
+        <ProtectedRoute component={CommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/c/:slug/manage">
+        <ProtectedRoute component={CommunityManagePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/c/:slug/create">
+        <ProtectedRoute component={CommunityCreatePostPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/community/pending/:id">
+        <ProtectedRoute component={CommunityWaitingPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/communities/discover">
+        <ProtectedRoute component={DiscoverCommunitiesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/communities/create">
+        <ProtectedRoute component={StartCommunityPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/create">
+        <ProtectedRoute component={CreatePostPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/create-post">
+        <ProtectedRoute component={CreatePostPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/flashcards">
+        <ProtectedRoute component={FlashcardsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/quiz">
+        <ProtectedRoute component={QuizPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/notes">
+        <ProtectedRoute component={NotesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/materials">
+        <ProtectedRoute component={MaterialsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/past-questions">
+        <ProtectedRoute component={PastQuestionsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+
+      <Route component={NotFound} />
+    </Switch>
+  );
+}
+
+function AppContent() {
+  const supabase = createClient();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [splashDone, setSplashDone] = useState(
+    () => sessionStorage.getItem("splashShown") === "true"
+  );
+
+  useEffect(() => {
+    // Bug #12 fix: resolve isLoading from the first onAuthStateChange event
+    // (which always fires as INITIAL_SESSION on mount) instead of getSession().
+    // This prevents the flash-of-redirect where isAuthenticated is briefly false
+    // before the listener catches up to the session that getSession already found.
+    let resolved = false;
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      setIsAuthenticated(!!session?.user);
+      if (!resolved) {
+        setIsLoading(false);
+        resolved = true;
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
+  if (!splashDone) {
+    return (
+      <SplashScreen
+        onComplete={() => {
+          sessionStorage.setItem("splashShown", "true");
+          setSplashDone(true);
+        }}
+      />
+    );
+  }
+
+  return <Router isAuthenticated={isAuthenticated} isLoading={isLoading} />;
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <AppContent />
+          </WouterRouter>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+}
+
+export default App;
