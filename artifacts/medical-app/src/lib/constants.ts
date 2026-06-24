@@ -20,6 +20,22 @@ export const ROLE_LABELS: Record<string, string> = {
   student: "Student",
 };
 
+/** List of Nigerian Medical Universities */
+export const NIGERIAN_UNIVERSITIES = [
+  { slug: "ui", name: "University of Ibadan" },
+  { slug: "unilag", name: "University of Lagos" },
+  { slug: "oau", name: "Obafemi Awolowo University" },
+  { slug: "abu", name: "Ahmadu Bello University" },
+  { slug: "unn", name: "University of Nigeria, Nsukka" },
+  { slug: "uniben", name: "University of Benin" },
+  { slug: "unilorin", name: "University of Ilorin" },
+  { slug: "uniport", name: "University of Port Harcourt" },
+  { slug: "lasucom", name: "Lagos State University College of Medicine" },
+  { slug: "comui", name: "College of Medicine, University of Ibadan" },
+  { slug: "unizik", name: "Nnamdi Azikiwe University" },
+  { slug: "buk", name: "Bayero University Kano" },
+];
+
 /**
  * Supabase select string for posts with author, community, and comment count.
  * Used by HomePage, CommunityPage, PostDetailPage, ProfilePage.
@@ -29,5 +45,6 @@ export const POST_SELECT_FIELDS = `
   is_announcement, is_pinned, upvotes, downvotes, created_at,
   author:profiles!author_id(id, username, full_name, avatar_url, profession),
   community:communities!community_id(id, name, slug, icon),
-  comment_count:comments(count)
+  comment_count:comments(count),
+  likes_count:post_reactions(count)
 `;

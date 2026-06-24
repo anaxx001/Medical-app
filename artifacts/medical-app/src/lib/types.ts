@@ -18,3 +18,22 @@ export interface SupportTicketFormData {
   subject: string;
   message: string;
 }
+
+export interface Profile {
+  id: string;
+  username: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  banner_url: string | null;
+  bio: string | null;
+  status: string | null;
+  institution: string | null;
+  university: string | null;
+  profession: string | null;
+  course: string | null;
+  study_year: string | null;
+  role: string;
+  is_verified?: boolean;
+  is_private?: boolean;
+  created_at: string;
+}
