@@ -15,7 +15,7 @@ type Category =
   | "Dentistry"
   | "Other";
 
-type GroupSize = "under_50" | "50_200" | "200_plus";
+type GroupSize = "under_400" | "400_1800" | "2k_plus" | "under_50" | "50_200" | "200_plus";
 
 interface FormErrors {
   name?: string;
@@ -53,9 +53,9 @@ const suggestedTags = [
 ];
 
 const groupSizeOptions: { value: GroupSize; label: string; hint: string; icon: string }[] = [
-  { value: "under_50", label: "Under 50", hint: "Class group", icon: "👨‍🎓" },
-  { value: "50_200", label: "50–200", hint: "Departmental", icon: "🏫" },
-  { value: "200_plus", label: "200+", hint: "Inter-university", icon: "🌍" },
+  { value: "under_400", label: "Under 400", hint: "class group", icon: "👨‍🎓" },
+  { value: "400_1800", label: "400-1800", hint: "departmental", icon: "🏫" },
+  { value: "2k_plus", label: "2k+", hint: "inter-university", icon: "🌍" },
 ];
 
 export default function StartCommunityPage() {
@@ -132,7 +132,7 @@ export default function StartCommunityPage() {
     }
 
     if (!groupSize) {
-      nextErrors.groupSize = "Please choose an estimated group size.";
+      nextErrors.groupSize = "Please choose an estimated community size.";
     }
 
     if (!agreedToGuidelines) {
@@ -194,7 +194,7 @@ export default function StartCommunityPage() {
           tags,
           justification,
           stated_purpose: justification,
-          estimated_size: groupSize,
+          size_estimate: groupSize,
           status: "pending",
           created_by: user.id,
         })
@@ -544,7 +544,7 @@ export default function StartCommunityPage() {
 
           {/* ── Group Size ── */}
           <div>
-            <label style={labelStyle}>Estimated Group Size</label>
+            <label style={labelStyle}>Estimated Community size</label>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px" }}>
               {groupSizeOptions.map((option) => (
                 <button

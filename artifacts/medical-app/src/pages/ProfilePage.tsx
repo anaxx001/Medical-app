@@ -67,6 +67,8 @@ export default function ProfilePage() {
   const [followingCount, setFollowingCount] = useState(0);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followRequestPending, setFollowRequestPending] = useState(false);
+  const [chatStatus, setChatStatus] = useState<"none" | "pending_sent" | "pending_received" | "connected">("none");
+  const [sendingChatRequest, setSendingChatRequest] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const [karmaScore, setKarmaScore] = useState(0);
   const [studyStreak, setStudyStreak] = useState(0);
@@ -83,7 +85,7 @@ export default function ProfilePage() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [editForm, setEditForm] = useState({
-    full_name: "", bio: "", status: "", institution: "",
+    full_name: "", bio: "", status: "", university: "",
     profession: "", course: "", study_year: "", is_private: false,
   });
 
@@ -115,7 +117,7 @@ export default function ProfilePage() {
       setIsPrivate(profileData.is_private || false);
       setEditForm({
         full_name: profileData.full_name || "", bio: profileData.bio || "",
-        status: profileData.status || "", institution: profileData.institution || "",
+        status: profileData.status || "", university: profileData.university || profileData.institution || "",
         profession: profileData.profession || "", course: profileData.course || "",
         study_year: profileData.study_year || "", is_private: profileData.is_private || false,
       });
@@ -256,6 +258,28 @@ export default function ProfilePage() {
             .eq("status", "pending").single();
           setFollowRequestPending(!!reqData);
         }
+
+        const { data: acceptedPair } = await supabase
+          .from("accepted_chat_pairs")
+          .select("id")
+          .or(`and(user_a.eq.${user.id},user_b.eq.${profileData.id}),and(user_a.eq.${profileData.id},user_b.eq.${user.id})`)
+          .maybeSingle();
+
+        if (acceptedPair) {
+          setChatStatus("connected");
+        } else {
+          const { data: sentRequest } = await supabase
+            .from("chat_requests").select("id")
+            .eq("sender_id", user.id).eq("receiver_id", profileData.id).maybeSingle();
+          if (sentRequest) {
+            setChatStatus("pending_sent");
+          } else {
+            const { data: receivedRequest } = await supabase
+              .from("chat_requests").select("id")
+              .eq("sender_id", profileData.id).eq("receiver_id", user.id).maybeSingle();
+            setChatStatus(receivedRequest ? "pending_received" : "none");
+          }
+        }
       }
 
       const { data: badgesData } = await supabase
@@ -333,9 +357,18 @@ export default function ProfilePage() {
     if (!profile) return;
     await supabase.from("profiles").update({
       full_name: editForm.full_name, bio: editForm.bio, status: editForm.status,
-      institution: editForm.institution, profession: editForm.profession,
+      university: editForm.university, institution: editForm.university, profession: editForm.profession,
       course: editForm.course, study_year: editForm.study_year, is_private: editForm.is_private,
     }).eq("id", profile.id);
+
+    try {
+      await supabase.auth.updateUser({
+        data: { full_name: editForm.full_name }
+      });
+    } catch (e) {
+      console.warn("Auth meta non-blocking update:", e);
+    }
+
     setIsPrivate(editForm.is_private);
     setShowEditModal(false);
     fetchProfile();
@@ -425,7 +458,32 @@ export default function ProfilePage() {
 
   function handleMessage() {
     if (!profile) return;
-    window.location.href = `/messages/${profile.username}`;
+    window.location.href = `/messages/${profile.id}`;
+  }
+
+  async function handleSendChatRequest() {
+    if (!profile || !currentUserId || sendingChatRequest) return;
+    setSendingChatRequest(true);
+    try {
+      const { error } = await supabase
+        .from("chat_requests")
+        .insert({ sender_id: currentUserId, receiver_id: profile.id });
+
+      if (error) {
+        // Unique constraint violation means a pending request already exists
+        // between you two in some direction — not a real failure, just a race.
+        if (error.code === "23505") {
+          setChatStatus("pending_sent");
+        } else {
+          console.error("Failed to send chat request:", error);
+          alert("Couldn't send a chat request right now. Please try again.");
+        }
+        return;
+      }
+      setChatStatus("pending_sent");
+    } finally {
+      setSendingChatRequest(false);
+    }
   }
 
   const isOwn = currentUserId === profile?.id;
@@ -571,6 +629,7 @@ export default function ProfilePage() {
                 marginTop: "-40px",
                 marginBottom: "16px",
                 gap: "12px",
+                flexWrap: "wrap",
               }}
             >
               {/* Left: Avatar + Name cluster */}
@@ -662,6 +721,7 @@ export default function ProfilePage() {
                         color: "var(--text)",
                         margin: 0,
                         lineHeight: 1.2,
+                        overflowWrap: "anywhere",
                       }}
                     >
                       {profile.full_name || profile.username}
@@ -712,27 +772,100 @@ export default function ProfilePage() {
                   </button>
                 ) : (
                   <>
-                    <button
-                      onClick={handleMessage}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: "99px",
-                        border: "1px solid var(--border)",
-                        background: "rgba(0,0,0,0.03)",
-                        color: "var(--text)",
-                        fontFamily: "var(--font-display)",
-                        fontWeight: 600,
-                        fontSize: "12px",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      <Send size={13} />
-                      Message
-                    </button>
+                    {chatStatus === "connected" && (
+                      <button
+                        onClick={handleMessage}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "99px",
+                          border: "1px solid var(--border)",
+                          background: "rgba(0,0,0,0.03)",
+                          color: "var(--text)",
+                          fontFamily: "var(--font-display)",
+                          fontWeight: 600,
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Send size={13} />
+                        Message
+                      </button>
+                    )}
+                    {chatStatus === "none" && (
+                      <button
+                        onClick={handleSendChatRequest}
+                        disabled={sendingChatRequest}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "99px",
+                          border: "1px solid var(--border)",
+                          background: "rgba(0,0,0,0.03)",
+                          color: "var(--text)",
+                          fontFamily: "var(--font-display)",
+                          fontWeight: 600,
+                          fontSize: "12px",
+                          cursor: sendingChatRequest ? "default" : "pointer",
+                          opacity: sendingChatRequest ? 0.6 : 1,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        <Send size={13} />
+                        {sendingChatRequest ? "Sending..." : "Send Chat Request"}
+                      </button>
+                    )}
+                    {chatStatus === "pending_sent" && (
+                      <button
+                        disabled
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "99px",
+                          border: "1px solid var(--border)",
+                          background: "rgba(0,0,0,0.03)",
+                          color: "var(--text-muted)",
+                          fontFamily: "var(--font-display)",
+                          fontWeight: 600,
+                          fontSize: "12px",
+                          cursor: "default",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        Request Sent
+                      </button>
+                    )}
+                    {chatStatus === "pending_received" && (
+                      <Link
+                        href="/messages"
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: "99px",
+                          border: "none",
+                          background: "#1ABC9C",
+                          color: "#fff",
+                          fontFamily: "var(--font-display)",
+                          fontWeight: 600,
+                          fontSize: "12px",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                          whiteSpace: "nowrap",
+                          textDecoration: "none",
+                        }}
+                      >
+                        <Send size={13} />
+                        Respond to Request
+                      </Link>
+                    )}
                     <button
                       onClick={handleFollowToggle}
                       style={{
@@ -806,10 +939,10 @@ export default function ProfilePage() {
                 marginBottom: "16px",
               }}
             >
-              {profile.institution && (
+              {(profile.university || profile.institution) && (
                 <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
                   <BookOpen size={14} />
-                  {profile.institution}
+                  {profile.university || profile.institution}
                 </span>
               )}
               {profile.profession && (
@@ -1681,12 +1814,12 @@ export default function ProfilePage() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                 <div>
                   <label style={{ display: "block", fontFamily: "var(--font-display)", fontSize: "13px", fontWeight: 600, color: "var(--text)", marginBottom: "6px" }}>
-                    Institution
+                    University
                   </label>
                   <input
                     type="text"
-                    value={editForm.institution}
-                    onChange={(e) => setEditForm({ ...editForm, institution: e.target.value })}
+                    value={editForm.university}
+                    onChange={(e) => setEditForm({ ...editForm, university: e.target.value })}
                     style={{
                       width: "100%", padding: "10px 14px", borderRadius: "12px",
                       border: "1px solid var(--border)", background: "rgba(0,0,0,0.03)",

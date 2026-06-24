@@ -40,6 +40,9 @@ interface CommunityRequest {
 }
 
 const sizeLabels: Record<string, string> = {
+  under_400: "Under 400 (class group)",
+  "400_1800": "400-1800 (departmental)",
+  "2k_plus": "2k+ (inter-university)",
   under_50: "Under 50 (Class group)",
   "50_200": "50–200 (Departmental)",
   "200_plus": "200+ (Inter-university)",
@@ -804,7 +807,7 @@ export default function AdminCommunityReviewPage() {
 
     try {
       // 1. Insert the community row
-      const { error: insertErr } = await supabase
+      const { data: newComm, error: insertErr } = await supabase
         .from("communities")
         .insert({
           name: req.name,
@@ -815,9 +818,24 @@ export default function AdminCommunityReviewPage() {
           is_private: req.is_private,
           tags: req.tags,
           created_by: req.created_by,
-        });
+          avatar_url: `https://api.dicebear.com/7.x/shapes/svg?seed=${req.slug}`,
+          icon_url: `https://api.dicebear.com/7.x/shapes/svg?seed=${req.slug}`,
+          icon: `https://api.dicebear.com/7.x/shapes/svg?seed=${req.slug}`,
+          banner_url: "https://images.unsplash.com/photo-1530210124550-912dc1381cb8?w=1200&h=400&fit=cover"
+        })
+        .select("id")
+        .single();
 
       if (insertErr) throw insertErr;
+
+      // 1b. Add creator as admin member
+      if (newComm) {
+        await supabase.from("community_members").insert({
+           community_id: newComm.id,
+           user_id: req.created_by,
+           role: "admin"
+        });
+      }
 
       // 2. Mark the request approved
       const { error: updateErr } = await supabase

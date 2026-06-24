@@ -1,759 +1,527 @@
 import { useState, useRef, useEffect } from "react";
-import { useLocation } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Link, useSearch } from "wouter";
 import { createClient } from "@/lib/supabase";
-import {
-  Send,
-  Bot,
-  User,
-  Sparkles,
-  AlertCircle,
-  Loader2,
-  ChevronLeft,
-  RotateCcw,
-  FlaskConical,
-  HeartPulse,
-  Brain,
-  BookOpen,
-  Lightbulb,
-  ShieldAlert,
-  Info,
-  X,
+import { motion, AnimatePresence } from "framer-motion";
+import { 
+  Send, Sparkles, FileText, HeartPulse, ShieldAlert, 
+  HelpCircle, Check, ArrowLeft, Star, Volume2, BookOpen, ChevronRight,
+  Bot, Trash2, Copy
 } from "lucide-react";
+import Markdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
-
-const SYSTEM_PROMPT = `You are a research co-pilot for Nigerian medical and health sciences students. You help with:
-- Understanding medical concepts and research papers
-- Explaining study material in simple terms
-- Suggesting study strategies and resources
-- Providing mental health encouragement when students seem stressed
-
-IMPORTANT: Always remind students to verify critical information with their lecturers or clinical supervisors. You are a study aid, not a medical authority. Be warm, supportive, and culturally aware of Nigerian medical education context.`;
-
-const SUGGESTED_PROMPTS = [
-  { icon: FlaskConical, text: "Help me structure a literature review on malaria in pregnancy", category: "Research" },
-  { icon: HeartPulse, text: "Explain the pathophysiology of heart failure in simple terms", category: "Study" },
-  { icon: Brain, text: "I'm feeling overwhelmed with exams. Any coping strategies?", category: "Wellness" },
-  { icon: BookOpen, text: "What are the best free research databases for Nigerian medical students?", category: "Resources" },
-  { icon: Lightbulb, text: "How do I choose a research topic for my final year project?", category: "Research" },
-  { icon: AlertCircle, text: "Walk me through writing a case report step by step", category: "Research" },
-];
-
-const DAILY_MESSAGE_LIMIT = 50;
+type ModelID = "docu" | "pulse" | "scrub";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  sender: "user" | "ai";
   content: string;
-  timestamp: Date;
-  model?: string;
+  timestamp: string;
+  savedToFlashcards?: boolean;
 }
 
-const models = [
-  { value: "docu", label: "Docu", icon: BookOpen, desc: "Research & Study" },
-  { value: "pulse", label: "Pulse", icon: HeartPulse, desc: "Clinical Cases" },
-  { value: "scrub", label: "Scrub", icon: FlaskConical, desc: "Procedural Skills" },
-];
-
 export default function ChatbotPage() {
-  const [, navigate] = useLocation();
   const supabase = createClient();
+  const rawSearch = useSearch();
+
+  // Determine if there is an incoming prompt from the dashboard / other pages
+  const parseQuery = () => {
+    const params = new URLSearchParams(rawSearch);
+    return params.get("prompt") || "";
+  };
+
+  const initialPrompt = parseQuery();
+
+  const [activeModel, setActiveModel] = useState<ModelID>("docu");
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("docu");
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState("");
-  const [dailyCount, setDailyCount] = useState(0);
-  const [showLimitWarning, setShowLimitWarning] = useState(false);
-  const [modelStatus, setModelStatus] = useState<Record<string, boolean>>({});
+  const [inputVal, setInputVal] = useState("");
+  const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+
+  const renderBotIcon = (type: ModelID, size = 18) => {
+    let accent = "#0D9488";
+    if (type === "pulse") accent = "#E11D48";
+    if (type === "scrub") accent = "#7C3AED";
+    return (
+      <div style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: `${size + 14}px`,
+        height: `${size + 14}px`,
+        background: `${accent}15`,
+        color: accent,
+        borderRadius: "50%",
+        boxShadow: `0 0 10px ${accent}20`
+      }}>
+        <Bot size={size} style={{ strokeWidth: 2.2 }} />
+      </div>
+    );
+  };
+
+  // Model details from strategic pillars
+  const modelMetadata = {
+    docu: {
+      name: "Docu-Bot",
+      tagline: "Document Analysis & Paper Breakdown",
+      description: "Break complex medical publications & policy guidelines down into simple 1st-year or 2nd-year clinical levels.",
+      avatar: "🤖📄",
+      accent: "#0D9488",
+      examplePrompts: [
+        "Explain this term: Pharmacokinetics",
+        "Summarize the guidelines for managing acute malaria",
+        "Break down this mechanism: Renin-Angiotensin-Aldosterone System"
+      ]
+    },
+    pulse: {
+      name: "Pulse-Bot",
+      tagline: "Quick Clinical Case Breakdown",
+      description: "Ask hypothetical clinical symptom questions & learn diagnostic approaches safely on high-priority Nigerian health issues.",
+      avatar: "🤖🩺",
+      accent: "#E11D48",
+      examplePrompts: [
+        "Symptom approach: Unexplained pediatric high fever",
+        "Explain the key markers for acute myocardial infarction",
+        "Case breakdown: 24-year-old presenting with jaundice"
+      ]
+    },
+    scrub: {
+      name: "Scrub-Bot",
+      tagline: "Flashcard & Quick Quiz Drills",
+      description: "Interactive revision prep. Ask for quick quizzes on medical exam topics & generate study flashcards instantly.",
+      avatar: "🤖🧠",
+      accent: "#7C3AED",
+      examplePrompts: [
+        "Create a 3-question MCQ quiz on cardiac physiology",
+        "Help me review Cranial Nerves and their functions",
+        "Generate active recall prompts for pharmacology matching"
+      ]
+    }
+  };
+
+  const [enabledModels, setEnabledModels] = useState<Record<string, boolean>>({ docu: true, pulse: true, scrub: true });
 
   useEffect(() => {
-    loadMessages();
-    checkDailyCount();
-    checkModelStatus();
+    setEnabledModels({
+      docu: localStorage.getItem("medstudent_ai_docu_active") !== "false",
+      pulse: localStorage.getItem("medstudent_ai_pulse_active") !== "false",
+      scrub: localStorage.getItem("medstudent_ai_scrub_active") !== "false"
+    });
   }, []);
 
+  // Run automatically if search prompt is present
+  useEffect(() => {
+    if (initialPrompt) {
+      setInputVal(initialPrompt);
+    }
+  }, [initialPrompt]);
+
+  // Scroll to bottom on updates
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, loading]);
 
-  const loadMessages = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: true })
-      .limit(50);
+  const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
+    if (e) e.preventDefault();
+    const textToSend = customText || inputVal;
+    if (!textToSend.trim()) return;
 
-    if (data) {
-      setMessages(
-        data.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: new Date(msg.created_at),
-          model: msg.model,
-        }))
-      );
-    }
-  };
-
-  const checkDailyCount = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const today = new Date().toISOString().split("T")[0];
-    const { count } = await supabase
-      .from("chat_messages")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .gte("created_at", `${today}T00:00:00`)
-      .lte("created_at", `${today}T23:59:59`);
-
-    setDailyCount(count || 0);
-    if ((count || 0) >= DAILY_MESSAGE_LIMIT * 0.8) {
-      setShowLimitWarning(true);
-    }
-  };
-
-  const checkModelStatus = async () => {
-    const { data } = await supabase
-      .from("ai_model_settings")
-      .select("model_name, enabled");
-
-    if (data) {
-      const status: Record<string, boolean> = {};
-      data.forEach((s: any) => {
-        status[s.model_name] = s.enabled;
-      });
-      setModelStatus(status);
-    }
-  };
-
-  const saveMessage = async (role: "user" | "assistant", content: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from("chat_messages").insert({
-      user_id: user.id,
-      role,
-      content,
-      model: selectedModel,
-    });
-  };
-
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-
-    if (dailyCount >= DAILY_MESSAGE_LIMIT) {
-      setToastMessage(`You've reached your daily limit of ${DAILY_MESSAGE_LIMIT} messages. Try again tomorrow!`);
-      setShowToast(true);
-      return;
-    }
-
-    if (modelStatus[selectedModel] === false) {
-      setToastMessage(`${selectedModel.charAt(0).toUpperCase() + selectedModel.slice(1)} is temporarily unavailable. Try another model or check back later.`);
-      setShowToast(true);
-      return;
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: "user",
-      content: input.trim(),
-      timestamp: new Date(),
+    const userMsg: Message = {
+      id: "u-" + Date.now(),
+      sender: "user",
+      content: textToSend,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     };
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInput("");
-    setIsLoading(true);
-
-    await saveMessage("user", userMessage.content);
+    setMessages((prev) => [...prev, userMsg]);
+    if (!customText) setInputVal("");
+    setLoading(true);
 
     try {
-      const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash-exp",
-        safetySettings: [
-          { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-          { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-        ],
+      // Record usage parameter
+      try {
+        await supabase.from("pulse_usage").insert({
+          model_used: activeModel,
+          prompt_preview: textToSend.substring(0, 50),
+          created_at: new Date().toISOString()
+        });
+      } catch (e) {}
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) {
+        alert("Please log in to use the AI assistant.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          message: textToSend,
+          model: activeModel
+        })
       });
 
-      const chat = model.startChat({
-        history: messages.map((m) => ({
-          role: m.role,
-          parts: [{ text: m.content }],
-        })),
-        systemInstruction: SYSTEM_PROMPT,
-      });
+      if (!response.ok) throw new Error("Failed to fetch response");
+      const data = await response.json();
 
-      const result = await chat.sendMessage(input.trim());
-      const response = await result.response;
-      const responseText = response.text();
-
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: responseText,
-        timestamp: new Date(),
-        model: selectedModel,
+      const aiMsg: Message = {
+        id: "ai-" + Date.now(),
+        sender: "ai",
+        content: data.reply,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
       };
 
-      setMessages((prev) => [...prev, assistantMessage]);
-      await saveMessage("assistant", assistantMessage.content);
-      setDailyCount((prev) => prev + 1);
-    } catch (error: any) {
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `⚠️ ${error.message || "Something went wrong. Please try again."}`,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-      inputRef.current?.focus();
+      setMessages((prev) => [...prev, aiMsg]);
+      setLoading(false);
+
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
     }
   };
 
-  const handlePromptClick = (prompt: string) => {
-    setInput(prompt);
-    inputRef.current?.focus();
+  const saveAsFlashcard = async (msgId: string, text: string) => {
+    // Insert into mock/real saved_posts or flashcards table
+    await supabase.from("saved_posts").insert({
+      title: `AI Recall: ${modelMetadata[activeModel].name}`,
+      content: text,
+      category: "Flashcards",
+      created_at: new Date().toISOString()
+    }).catch(() => {});
+
+    setMessages((prev) => 
+      prev.map(m => m.id === msgId ? { ...m, savedToFlashcards: true } : m)
+    );
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const clearChat = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from("chat_messages").delete().eq("user_id", user.id);
-    setMessages([]);
-    setToastMessage("Chat history cleared");
-    setShowToast(true);
+  const handleExampleClick = (prompt: string) => {
+    setInputVal(prompt);
+    handleSendMessage(undefined, prompt);
   };
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: "column",
-      height: "100dvh",
-      background: "var(--bg)",
-    }}>
-      {/* Header */}
+    <div style={{ display: "flex", height: "100vh", background: "var(--bg)", fontFamily: "var(--font-sans, sans-serif)", color: "var(--text)" }}>
+      
+      {/* SIDEBAR SELECTOR (DESKTOP MODE) */}
       <div style={{
-        background: "linear-gradient(135deg, #0D9488, #14B8A6)",
-        color: "white",
-        padding: "12px 16px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexShrink: 0,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <button
-            onClick={() => navigate("/dashboard")}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: "4px",
-              borderRadius: "8px",
-              color: "white",
-              transition: "background 0.2s",
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-          >
-            <ChevronLeft size={22} />
-          </button>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Sparkles size={18} color="#FBBF24" />
-            <span style={{ fontWeight: 600, fontSize: "16px" }}>Research Co-Pilot</span>
-          </div>
-        </div>
-        <button
-          onClick={clearChat}
-          style={{
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "8px",
-            borderRadius: "8px",
-            color: "white",
-            transition: "background 0.2s",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-        >
-          <RotateCcw size={18} />
-        </button>
-      </div>
-
-      {/* Model Selector */}
-      <div style={{
+        width: "300px",
+        borderRight: "1px solid var(--border)",
         background: "var(--surface)",
-        borderBottom: "1px solid var(--border)",
-        padding: "8px 16px",
-        flexShrink: 0,
-      }}>
-        <select
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-          style={{
-            width: "100%",
-            padding: "10px 14px",
-            background: "var(--bg)",
-            border: "1px solid var(--border)",
-            borderRadius: "10px",
-            color: "var(--text)",
-            fontSize: "13px",
-            fontWeight: 500,
-            fontFamily: "var(--font-display)",
-            outline: "none",
-            cursor: "pointer",
-          }}
-        >
-          {models.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label} — {m.desc} {modelStatus[m.value] === false ? "(Offline)" : ""}
-            </option>
-          ))}
-        </select>
-      </div>
+        display: "flex",
+        flexDirection: "column",
+        padding: "20px"
+      }} className="hidden md:flex">
+        
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none", color: "var(--text-muted)", marginBottom: "24px", fontSize: "14px", fontWeight: 600 }}>
+          <ArrowLeft size={16} /> Back to Hub
+        </Link>
 
-      {/* Daily Limit Bar */}
-      <div style={{
-        background: "var(--bg)",
-        padding: "8px 16px",
-        borderBottom: "1px solid var(--border)",
-        flexShrink: 0,
-      }}>
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          fontSize: "12px",
-          color: "var(--text-muted)",
-          marginBottom: "4px",
-        }}>
-          <span>Daily usage: {dailyCount}/{DAILY_MESSAGE_LIMIT}</span>
-          <span>{Math.round((dailyCount / DAILY_MESSAGE_LIMIT) * 100)}%</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
+          <Sparkles color="#0D9488" size={20} />
+          <h2 style={{ fontSize: "18px", fontWeight: 800, margin: 0 }}>Research Co-pilots</h2>
         </div>
-        <div style={{
-          width: "100%",
-          background: "var(--border)",
-          borderRadius: "999px",
-          height: "6px",
-          overflow: "hidden",
-        }}>
-          <motion.div
-            style={{
-              height: "100%",
-              borderRadius: "999px",
-              background: dailyCount >= DAILY_MESSAGE_LIMIT
-                ? "#EF4444"
-                : dailyCount >= DAILY_MESSAGE_LIMIT * 0.8
-                ? "#F59E0B"
-                : "#10B981",
-            }}
-            initial={{ width: 0 }}
-            animate={{ width: `${(dailyCount / DAILY_MESSAGE_LIMIT) * 100}%` }}
-            transition={{ duration: 0.5 }}
-          />
-        </div>
-      </div>
 
-      {/* Messages Area */}
-      <div style={{
-        flex: 1,
-        overflowY: "auto",
-        background: "var(--bg)",
-        padding: "0 16px",
-      }}>
-        <AnimatePresence>
-          {showLimitWarning && dailyCount < DAILY_MESSAGE_LIMIT && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              style={{ margin: "8px 0" }}
-            >
-              <div style={{
-                background: "rgba(245, 158, 11, 0.08)",
-                border: "1px solid rgba(245, 158, 11, 0.2)",
-                borderRadius: "12px",
-                padding: "12px",
-                display: "flex",
-                alignItems: "flex-start",
-                gap: "8px",
-              }}>
-                <AlertCircle size={18} color="#F59E0B" style={{ flexShrink: 0, marginTop: "2px" }} />
-                <div>
-                  <p style={{ fontSize: "13px", fontWeight: 600, color: "var(--text)", margin: "0 0 2px 0" }}>
-                    Approaching daily limit
-                  </p>
-                  <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
-                    You've used {dailyCount} of {DAILY_MESSAGE_LIMIT} messages today.
-                  </p>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "16px", lineHeight: 1.4 }}>
+          Our co-pilots assist with documents, clinical thinking, and revision prep. They do not replace peer studies.
+        </p>
 
-        {/* Empty State */}
-        {messages.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            style={{ padding: "32px 0", textAlign: "center" }}
-          >
-            <div style={{
-              width: "80px",
-              height: "80px",
-              background: "linear-gradient(135deg, #0D9488, #14B8A6)",
-              borderRadius: "20px",
-              margin: "0 auto 16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              boxShadow: "0 8px 24px rgba(13,148,136,0.25)",
-            }}>
-              <Sparkles size={32} color="white" />
-            </div>
-            <h2 style={{
-              fontFamily: "var(--font-display)",
-              fontWeight: 700,
-              fontSize: "20px",
-              color: "var(--text)",
-              margin: "0 0 8px 0",
-            }}>
-              Your Research Co-Pilot
-            </h2>
-            <p style={{
-              fontSize: "14px",
-              color: "var(--text-muted)",
-              margin: "0 auto 24px auto",
-              maxWidth: "320px",
-              lineHeight: 1.5,
-            }}>
-              Ask me anything about research, studies, or wellness. I'm here to help you learn, not replace your judgment.
-            </p>
-
-            <div style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-              maxWidth: "380px",
-              margin: "0 auto",
-            }}>
-              {SUGGESTED_PROMPTS.map((prompt, index) => {
-                const Icon = prompt.icon;
-                return (
-                  <motion.button
-                    key={index}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    onClick={() => handlePromptClick(prompt.text)}
-                    style={{
-                      width: "100%",
-                      textAlign: "left",
-                      padding: "12px",
-                      background: "var(--surface)",
-                      borderRadius: "12px",
-                      border: "1px solid var(--border)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      cursor: "pointer",
-                      transition: "all 0.2s",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = "#0D9488";
-                      e.currentTarget.style.boxShadow = "0 2px 8px rgba(13,148,136,0.1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = "var(--border)";
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
-                  >
-                    <div style={{
-                      width: "32px",
-                      height: "32px",
-                      background: "rgba(13, 148, 136, 0.08)",
-                      borderRadius: "8px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      flexShrink: 0,
-                    }}>
-                      <Icon size={16} color="#0D9488" />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{
-                        fontSize: "13px",
-                        color: "var(--text)",
-                        margin: "0 0 2px 0",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}>
-                        {prompt.text}
-                      </p>
-                      <p style={{ fontSize: "11px", color: "var(--text-muted)", margin: 0 }}>
-                        {prompt.category}
-                      </p>
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </div>
-
-            <div style={{
-              marginTop: "24px",
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "8px",
-              fontSize: "12px",
-              color: "var(--text-muted)",
-              maxWidth: "320px",
-              marginLeft: "auto",
-              marginRight: "auto",
-            }}>
-              <Info size={14} style={{ flexShrink: 0, marginTop: "2px" }} />
-              <p style={{ margin: 0, lineHeight: 1.5 }}>
-                This AI provides educational support only. Always verify critical information and consult supervisors for clinical decisions.
-              </p>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Messages */}
-        <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: "16px" }}>
-          <AnimatePresence>
-            {messages.map((message) => (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
+        {/* Co-pilot models toggles */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "12px" }}>
+          {(Object.keys(modelMetadata) as ModelID[]).filter(mKey => enabledModels[mKey]).map((mKey) => {
+            const meta = modelMetadata[mKey];
+            const active = activeModel === mKey;
+            return (
+              <button
+                key={mKey}
+                onClick={() => { setActiveModel(mKey); setMessages([]); }}
                 style={{
                   display: "flex",
+                  alignItems: "flex-start",
                   gap: "12px",
-                  flexDirection: message.role === "user" ? "row-reverse" : "row",
+                  padding: "14px",
+                  borderRadius: "12px",
+                  border: "1px solid" + (active ? meta.accent : "var(--border)"),
+                  background: active ? `${meta.accent}0a` : "var(--surface)",
+                  cursor: "pointer",
+                  textAlign: "left"
                 }}
               >
-                <div style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                  background: message.role === "user" ? "var(--border)" : "linear-gradient(135deg, #0D9488, #14B8A6)",
-                }}>
-                  {message.role === "user" ? (
-                    <User size={14} color="var(--text-muted)" />
-                  ) : (
-                    <Sparkles size={14} color="white" />
-                  )}
+                {renderBotIcon(mKey, 20)}
+                <div>
+                  <strong style={{ display: "block", fontSize: "13.5px", color: active ? meta.accent : "var(--text)" }}>
+                    {meta.name}
+                  </strong>
+                  <span style={{ display: "block", fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                    {meta.tagline}
+                  </span>
                 </div>
+              </button>
+            );
+          })}
+        </div>
 
-                <div style={{
-                  maxWidth: "75%",
-                  padding: "12px 16px",
-                  borderRadius: "16px",
-                  fontSize: "14px",
-                  lineHeight: 1.6,
-                  background: message.role === "user" ? "#0D9488" : "var(--surface)",
-                  color: message.role === "user" ? "white" : "var(--text)",
-                  border: message.role === "user" ? "none" : "1px solid var(--border)",
-                  borderBottomRightRadius: message.role === "user" ? "4px" : "16px",
-                  borderBottomLeftRadius: message.role === "user" ? "16px" : "4px",
-                  whiteSpace: "pre-wrap",
-                }}>
-                  <div>{message.content}</div>
-                  {message.model && message.role === "assistant" && (
-                    <div style={{
-                      marginTop: "6px",
-                      fontSize: "11px",
-                      opacity: 0.5,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}>
-                      <FlaskConical size={12} />
-                      {message.model}
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
+        <div style={{ marginTop: "auto", background: "rgba(13,148,136,0.05)", padding: "12px", borderRadius: "10px", fontSize: "11.5px", color: "var(--text-muted)", border: "1px solid rgba(13,148,136,0.1)" }}>
+          💡 <strong>Study Tip:</strong> Use <em>Scrub</em> model when revision countdowns are high for diagnostic matching drills.
+        </div>
+      </div>
 
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              style={{ display: "flex", gap: "12px" }}
+      {/* CHAT WINDOW */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        
+        {/* MOBILE TOP NAVIGATION BRAND */}
+        <div style={{
+          padding: "16px",
+          borderBottom: "1px solid var(--border)",
+          background: "var(--surface)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
+          <div>
+            <span style={{ fontSize: "11px", fontWeight: 700, color: modelMetadata[activeModel].accent, textTransform: "uppercase" }}>
+              Active Research Co-pilot
+            </span>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              {renderBotIcon(activeModel, 18)}
+              <h3 style={{ margin: 0, fontSize: "16px", fontWeight: 800 }}>{modelMetadata[activeModel].name}</h3>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            <div className="hidden md:flex">
+              {messages.length > 0 && (
+                <button 
+                  onClick={() => setMessages([])}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "6px",
+                    background: "transparent", border: "1px solid var(--border)", 
+                    borderRadius: "8px", padding: "6px 10px", fontSize: "12px", fontWeight: 600,
+                    cursor: "pointer", color: "var(--text-muted)"
+                  }}
+                  className="hover:bg-slate-50"
+                >
+                  <Trash2 size={14} /> Clear
+                </button>
+              )}
+            </div>
+            
+            <div className="flex md:hidden" style={{ display: "flex", gap: "8px" }}>
+              {(Object.keys(modelMetadata) as ModelID[]).filter(mKey => enabledModels[mKey]).map((mKey) => (
+                <button 
+                  key={mKey} 
+                  onClick={() => { setActiveModel(mKey); setMessages([]); }}
+                  style={{ 
+                    background: activeModel === mKey ? "var(--border)" : "transparent", 
+                    border: "1px solid var(--border)", 
+                    borderRadius: "8px", 
+                    padding: "4px 8px", 
+                    fontSize: "12px", 
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    color: "var(--text)"
+                  }}
+                >
+                  {modelMetadata[mKey].name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* MESSAGES LISTING */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px", background: "var(--bg)" }}>
+          {messages.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              style={{ maxWidth: "560px", margin: "40px auto", textAlign: "center" }}
             >
-              <div style={{
-                width: "32px",
-                height: "32px",
-                background: "linear-gradient(135deg, #0D9488, #14B8A6)",
-                borderRadius: "50%",
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: "16px" }}>
+                {renderBotIcon(activeModel, 44)}
+              </div>
+              <h2 style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "20px", marginBottom: "8px" }}>
+                I am {modelMetadata[activeModel].name}
+              </h2>
+              <p style={{ fontSize: "13.5px", color: "var(--text-muted)", lineHeight: 1.5, marginBottom: "24px" }}>
+                {modelMetadata[activeModel].description}
+              </p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", textAlign: "left" }}>
+                <span style={{ fontSize: "12px", fontWeight: 700, textTransform: "uppercase", color: "var(--text-muted)", letterSpacing: "1px" }}>
+                  Try starting with:
+                </span>
+                {modelMetadata[activeModel].examplePrompts.map((ep, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleExampleClick(ep)}
+                    style={{
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "10px",
+                      padding: "12px 14px",
+                      fontSize: "13px",
+                      fontWeight: 500,
+                      color: "var(--text)",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}
+                    className="hover:bg-slate-50"
+                  >
+                    <span>{ep}</span>
+                    <ChevronRight size={14} color="var(--text-muted)" />
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          ) : (
+            <div style={{ maxWidth: "720px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "20px" }}>
+              <AnimatePresence>
+                {messages.map((m) => {
+                  const isUser = m.sender === "user";
+                  return (
+                    <motion.div
+                      key={m.id}
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                      style={{
+                        display: "flex",
+                        justifyContent: isUser ? "flex-end" : "flex-start",
+                        alignItems: "flex-start",
+                        gap: "10px"
+                      }}
+                    >
+                      {!isUser && renderBotIcon(activeModel, 16)}
+
+                      <div style={{ maxWidth: "80%" }}>
+                        <div style={{
+                          background: isUser ? "var(--gradient, #0d9488)" : "var(--surface)",
+                          color: isUser ? "white" : "var(--text)",
+                          border: isUser ? "none" : "1px solid var(--border)",
+                          padding: "14px 16px",
+                          borderRadius: "16px",
+                          boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                          fontSize: "14px",
+                          lineHeight: 1.5,
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere"
+                        }} className={isUser ? "" : "markdown-body"}>
+                          {isUser ? m.content : <Markdown remarkPlugins={[remarkGfm]}>{m.content}</Markdown>}
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: isUser ? "flex-end" : "space-between", alignItems: "center", marginTop: "6px", padding: "0 4px" }}>
+                          {!isUser && (
+                            <div style={{ display: "flex", gap: "14px" }}>
+                              <button
+                                onClick={() => navigator.clipboard.writeText(m.content).then(() => alert("Copied to clipboard!"))}
+                                style={{
+                                  background: "none", border: "none", padding: 0, fontSize: "11px",
+                                  color: "var(--text-muted)", fontWeight: 600, cursor: "pointer",
+                                  display: "flex", alignItems: "center", gap: "4px"
+                                }}
+                              >
+                                <Copy size={12} /> Copy
+                              </button>
+                              <button
+                                onClick={() => saveAsFlashcard(m.id, m.content)}
+                                disabled={m.savedToFlashcards}
+                                style={{
+                                  background: "none", border: "none", padding: 0, fontSize: "11px",
+                                  color: m.savedToFlashcards ? "#0D9488" : "var(--text-muted)", fontWeight: 600, cursor: "pointer",
+                                  display: "flex", alignItems: "center", gap: "4px"
+                                }}
+                              >
+                                <BookOpen size={12} />
+                                {m.savedToFlashcards ? "Mastered Chest ✅" : "Add to Flashcard"}
+                              </button>
+                            </div>
+                          )}
+                          <span style={{ fontSize: "10px", color: "var(--text-muted)", marginLeft: isUser ? 0 : "auto" }}>{m.timestamp}</span>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+
+              {loading && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  {renderBotIcon(activeModel, 16)}
+                  <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "14px 16px", borderRadius: "16px" }}>
+                    <div style={{ display: "flex", gap: "6px" }}>
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--text-muted)", borderRadius: "50%", display: "inline-block", animation: "bounce 1.4s infinite ease-in-out both" }} />
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--text-muted)", borderRadius: "50%", display: "inline-block", animation: "bounce 1.4s infinite ease-in-out both", animationDelay: "0.2s" }} />
+                      <span className="dot" style={{ width: "6px", height: "6px", background: "var(--text-muted)", borderRadius: "50%", display: "inline-block", animation: "bounce 1.4s infinite ease-in-out both", animationDelay: "0.4s" }} />
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* INPUT COMPOSER CONTAINER */}
+        <div style={{ padding: "20px", borderTop: "1px solid var(--border)", background: "var(--surface)" }}>
+          <form onSubmit={handleSendMessage} style={{ maxWidth: "720px", margin: "0 auto", position: "relative" }}>
+            <input
+              type="text"
+              placeholder={`Query ${modelMetadata[activeModel].name} on topics...`}
+              value={inputVal}
+              onChange={(e) => setInputVal(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "14px 50px 14px 16px",
+                borderRadius: "14px",
+                border: "1px solid var(--border)",
+                background: "var(--surface-muted)",
+                color: "var(--text)",
+                fontFamily: "var(--font-body)",
+                fontSize: "14px",
+                outline: "none"
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: modelMetadata[activeModel].accent,
+                border: "none",
+                width: "36px",
+                height: "36px",
+                borderRadius: "10px",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-              }}>
-                <Sparkles size={14} color="white" />
-              </div>
-              <div style={{
-                background: "var(--surface)",
-                padding: "12px 16px",
-                borderRadius: "16px",
-                border: "1px solid var(--border)",
-                borderBottomLeftRadius: "4px",
-              }}>
-                <Loader2 size={16} color="var(--text-muted)" style={{ animation: "spin 1s linear infinite" }} />
-              </div>
-            </motion.div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      {/* Input */}
-      <div style={{
-        background: "var(--surface)",
-        borderTop: "1px solid var(--border)",
-        padding: "12px 16px",
-        flexShrink: 0,
-      }}>
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-        }}>
-          <input
-            ref={inputRef}
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={
-              dailyCount >= DAILY_MESSAGE_LIMIT
-                ? "Daily limit reached"
-                : "Ask your research co-pilot..."
-            }
-            disabled={isLoading || dailyCount >= DAILY_MESSAGE_LIMIT}
-            style={{
-              flex: 1,
-              background: "var(--bg)",
-              borderRadius: "999px",
-              padding: "12px 16px",
-              fontSize: "14px",
-              border: "1px solid var(--border)",
-              color: "var(--text)",
-              outline: "none",
-              fontFamily: "var(--font-body)",
-              opacity: isLoading || dailyCount >= DAILY_MESSAGE_LIMIT ? 0.5 : 1,
-            }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading || dailyCount >= DAILY_MESSAGE_LIMIT}
-            style={{
-              width: "40px",
-              height: "40px",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "none",
-              cursor: !input.trim() || isLoading || dailyCount >= DAILY_MESSAGE_LIMIT ? "not-allowed" : "pointer",
-              background: dailyCount >= DAILY_MESSAGE_LIMIT ? "var(--border)" : "#0D9488",
-              color: dailyCount >= DAILY_MESSAGE_LIMIT ? "var(--text-muted)" : "white",
-              transition: "opacity 0.2s",
-              opacity: !input.trim() || isLoading || dailyCount >= DAILY_MESSAGE_LIMIT ? 0.5 : 1,
-            }}
-          >
-            {isLoading ? (
-              <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
-            ) : (
-              <Send size={18} />
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {showToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            style={{
-              position: "fixed",
-              top: "16px",
-              left: "50%",
-              transform: "translateX(-50%)",
-              zIndex: 1000,
-              background: "#374151",
-              color: "white",
-              padding: "10px 16px",
-              borderRadius: "10px",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
-              fontSize: "13px",
-              fontWeight: 600,
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-            }}
-          >
-            <ShieldAlert size={16} />
-            {toastMessage}
-            <button
-              onClick={() => setShowToast(false)}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: "2px",
                 color: "white",
-                marginLeft: "4px",
+                cursor: "pointer"
               }}
             >
-              <X size={14} />
+              <Send size={16} />
             </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </form>
+        </div>
+
+      </div>
 
       <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
+        @keyframes bounce {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1.0); }
         }
       `}</style>
     </div>

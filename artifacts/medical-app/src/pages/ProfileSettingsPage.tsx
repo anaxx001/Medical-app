@@ -29,7 +29,8 @@ export default function ProfileSettingsPage() {
   const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
   const [bio, setBio] = useState("");
-  const [institution, setInstitution] = useState("");
+  const [university, setUniversity] = useState("");
+  const [studyYear, setStudyYear] = useState("");
   const [profession, setProfession] = useState<Profession>("Other");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -59,7 +60,8 @@ export default function ProfileSettingsPage() {
         setFullName(data.full_name || "");
         setUsername(data.username || "");
         setBio(data.bio || "");
-        setInstitution(data.institution || "");
+        setUniversity(data.university || data.institution || "");
+        setStudyYear(data.study_year || "");
         setProfession(data.profession || "Other");
         setCurrentAvatarUrl(data.avatar_url || "");
         setCurrentCoverUrl(data.cover_url || "");
@@ -163,7 +165,10 @@ export default function ProfileSettingsPage() {
 
       const updateData: any = {};
       if (avatarFile) updateData.avatar_url = newAvatarUrl;
-      if (coverFile) updateData.cover_url = newCoverUrl;
+      if (coverFile) {
+        updateData.cover_url = newCoverUrl;
+        updateData.banner_url = newCoverUrl; // For compatibility with ProfilePage
+      }
 
       const { error: updateError } = await supabase
         .from("profiles")
@@ -191,9 +196,27 @@ export default function ProfileSettingsPage() {
     try {
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ full_name: fullName, username, bio, institution, profession })
+        .update({ 
+          full_name: fullName, 
+          username, 
+          bio, 
+          university, 
+          institution: university, // Keep both for backward compatibility
+          study_year: studyYear,
+          profession 
+        })
         .eq("id", userId);
       if (updateError) throw updateError;
+
+      // Update auth user data metadata to prevent stale names reverting
+      try {
+        await supabase.auth.updateUser({
+          data: { full_name: fullName, username: username }
+        });
+      } catch (authMetaErr) {
+        console.warn("Auth metadata update non-blocking error:", authMetaErr);
+      }
+
       savePrefs({ profession, name: fullName, username });
       setSuccess("Profile updated successfully!");
     } catch (err: any) {
@@ -348,7 +371,8 @@ export default function ProfileSettingsPage() {
               {[
                 { label: "Full Name", value: fullName, setter: setFullName, placeholder: "Your full name", icon: User },
                 { label: "Username", value: username, setter: setUsername, placeholder: "your_username", icon: BookOpen },
-                { label: "Institution", value: institution, setter: setInstitution, placeholder: "Your university", icon: Building2 },
+                { label: "University", value: university, setter: setUniversity, placeholder: "Your university (e.g. UI, UNILAG, UNN)", icon: Building2 },
+                { label: "Study Year", value: studyYear, setter: setStudyYear, placeholder: "e.g. Year 3, Year 4, Post-grad", icon: GraduationCap },
               ].map(({ label, value, setter, placeholder, icon: Icon }) => (
                 <div key={label}>
                   <label style={{

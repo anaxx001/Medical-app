@@ -5,8 +5,8 @@ import { createClient } from "@/lib/supabase";
 import { formatDateShort } from "@/lib/formatters";
 import { POST_SELECT_FIELDS } from "@/lib/constants";
 import { normalizePosts } from "@/lib/posts";
-import { PenSquare, TrendingUp, Clock, Flame, ChevronRight, Megaphone, ChevronDown, ChevronUp, Calendar, Search } from "lucide-react";
-import { Link } from "wouter";
+import { PenSquare, TrendingUp, Clock, Flame, ChevronRight, Megaphone, ChevronDown, ChevronUp, Calendar, Search, User, Users, GraduationCap, MessageSquare } from "lucide-react";
+import { Link, useLocation } from "wouter";
 
 const filters = [
   { key: "hot", label: "Hot", icon: Flame },
@@ -18,9 +18,9 @@ const communityCategories = [
   {
     label: "Official",
     communities: [
-      { name: "Announcements", slug: "announcements", icon: "📢" },
-      { name: "General", slug: "general", icon: "💬" },
-      { name: "Study Materials", slug: "materials", icon: "📁" },
+      { name: "Announcements", slug: "announcements", icon: Megaphone },
+      { name: "General", slug: "general", icon: MessageSquare },
+      { name: "Study Materials", slug: "materials", icon: GraduationCap },
     ],
   },
   {
@@ -35,19 +35,73 @@ const communityCategories = [
 
 export default function HomePage() {
   const supabase = createClient();
+  const [location] = useLocation();
+  const getInitialFilter = () => {
+    if (location === "/popular") return "hot";
+    if (location === "/recent") return "new";
+    if (location === "/my-posts") return "my-posts";
+    return "hot";
+  };
   const [posts, setPosts] = useState<Post[]>([]);
   const [announcements, setAnnouncements] = useState<Post[]>([]);
   const [isAnnouncementsExpanded, setIsAnnouncementsExpanded] = useState(false);
-  const [filter, setFilter] = useState("hot");
+  const [filter, setFilter] = useState(getInitialFilter);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | undefined>();
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchedProfiles, setSearchedProfiles] = useState<any[]>([]);
+  const [searchedCommunities, setSearchedCommunities] = useState<any[]>([]);
+  const [isSearchingAll, setIsSearchingAll] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id);
     });
   }, []);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchedProfiles([]);
+      setSearchedCommunities([]);
+      return;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      setIsSearchingAll(true);
+      try {
+        const { data: matchedProfiles } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url, university")
+          .or(`username.ilike.%${searchQuery}%,full_name.ilike.%${searchQuery}%`)
+          .limit(5);
+        
+        const { data: matchedCommunities } = await supabase
+          .from("communities")
+          .select("id, name, slug, description, category")
+          .or(`name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+          .limit(5);
+
+        setSearchedProfiles(matchedProfiles || []);
+        setSearchedCommunities(matchedCommunities || []);
+      } catch (err) {
+        console.error("Search fetch error:", err);
+      } finally {
+        setIsSearchingAll(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounce);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (location === "/popular") {
+      setFilter("hot");
+    } else if (location === "/recent") {
+      setFilter("new");
+    } else if (location === "/my-posts") {
+      setFilter("my-posts");
+    }
+  }, [location]);
 
   useEffect(() => {
     async function fetchPosts() {
@@ -57,10 +111,16 @@ export default function HomePage() {
           .from("posts")
           .select(POST_SELECT_FIELDS);
 
+        if (filter === "my-posts" && currentUserId) {
+          query = query.eq("author_id", currentUserId);
+        }
+
         if (filter === "new") {
           query = query.order("created_at", { ascending: false });
         } else if (filter === "top") {
           query = query.order("upvotes", { ascending: false });
+        } else if (filter === "my-posts") {
+          query = query.order("created_at", { ascending: false });
         } else {
           query = query
             .order("is_announcement", { ascending: false })
@@ -161,6 +221,93 @@ export default function HomePage() {
               <Link href="/create" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "36px", height: "36px", borderRadius: "var(--radius-sm)", background: "var(--gradient)", color: "white", textDecoration: "none", flexShrink: 0 }}><PenSquare size={16} /></Link>
             </div>
 
+            {searchQuery.trim() !== "" && (() => {
+              // Extract posts that match search query
+              const matchingPosts = posts.filter(post => 
+                post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (post.content?.toLowerCase() || "").includes(searchQuery.toLowerCase())
+              );
+
+              const hasAnyResults = searchedProfiles.length > 0 || searchedCommunities.length > 0 || matchingPosts.length > 0;
+
+              return (
+                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "20px", marginBottom: "20px", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", borderBottom: "1px solid var(--border)", paddingBottom: "10px" }}>
+                    <h3 style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontSize: "14px", color: "var(--text)", margin: 0 }}>
+                      🔍 Unified Search Results for "{searchQuery}"
+                    </h3>
+                    <button 
+                      onClick={() => setSearchQuery("")}
+                      style={{ background: "rgba(0,0,0,0.05)", border: "none", borderRadius: "50%", padding: "4px", fontSize: "11px", color: "var(--text-muted)", cursor: "pointer" }}
+                    >
+                      Clear
+                    </button>
+                  </div>
+
+                  {!hasAnyResults ? (
+                    <div style={{ textAlign: "center", padding: "24px", color: "var(--text-muted)" }}>
+                      <p style={{ fontSize: "13.5px", margin: 0 }}>No matching students, communities, or posts found.</p>
+                      <p style={{ fontSize: "11px", marginTop: "4px" }}>Try tweaking terms or seeking a clinical topic.</p>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      
+                      {/* USER MATCHES */}
+                      {searchedProfiles.map((p) => (
+                        <Link key={p.id} href={`/profile/${p.username}`} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: "var(--surface-muted)", textDecoration: "none", border: "1px solid var(--border)", transition: "all 0.2s" }} className="hover:border-teal-500">
+                          <span style={{ fontSize: "10px", background: "rgba(13,148,136,0.12)", color: "#0d9488", padding: "2px 8px", borderRadius: "99px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            Student
+                          </span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px", flex: 1, minWidth: 0 }}>
+                            {p.avatar_url ? (
+                              <img src={p.avatar_url} style={{ width: "28px", height: "28px", borderRadius: "50%" }} />
+                            ) : (
+                              <div style={{ width: "28px", height: "28px", borderRadius: "50%", background: "#0d9488", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: "11px" }}>
+                                {p.username?.[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            <div style={{ minWidth: 0 }}>
+                              <strong style={{ fontSize: "12.5px", color: "var(--text)", display: "block" }}>@{p.username} ({p.full_name || "Peer Student"})</strong>
+                              <span style={{ fontSize: "10.5px", color: "var(--text-muted)", display: "block" }}>{p.university || "UI College of Medicine"}</span>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+
+                      {/* COMMUNITY MATCHES */}
+                      {searchedCommunities.map((c) => (
+                        <Link key={c.id} href={`/c/${c.slug}`} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: "var(--surface-muted)", textDecoration: "none", border: "1px solid var(--border)", transition: "all 0.2s" }} className="hover:border-teal-500">
+                          <span style={{ fontSize: "10px", background: "rgba(124,58,237,0.12)", color: "#7C3AED", padding: "2px 8px", borderRadius: "99px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            Circle
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ fontSize: "12.5px", color: "var(--text)", display: "block" }}>🏫 {c.name}</strong>
+                            <span style={{ fontSize: "10.5px", color: "var(--text-muted)", display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{c.description || "Active community circle"}</span>
+                          </div>
+                          <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        </Link>
+                      ))}
+
+                      {/* POST MATCHES */}
+                      {matchingPosts.map((post) => (
+                        <Link key={post.id} href={`/post/${post.id}`} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", borderRadius: "10px", background: "var(--surface-muted)", textDecoration: "none", border: "1px solid var(--border)", transition: "all 0.2s" }} className="hover:border-teal-500">
+                          <span style={{ fontSize: "10px", background: "rgba(225,29,72,0.12)", color: "#E11D48", padding: "2px 8px", borderRadius: "99px", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                            Post
+                          </span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <strong style={{ fontSize: "12.5px", color: "var(--text)", display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{post.title}</strong>
+                            <span style={{ fontSize: "10.5px", color: "var(--text-muted)", display: "block", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>{post.content?.substring(0, 100)}...</span>
+                          </div>
+                          <ChevronRight size={14} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                        </Link>
+                      ))}
+
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div style={{ display: "flex", gap: "6px", marginBottom: "16px" }}>
               {filters.map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setFilter(key)} style={{ display: "flex", alignItems: "center", gap: "6px", padding: "8px 16px", borderRadius: "99px", border: "none", background: filter === key ? "var(--gradient)" : "var(--surface)", color: filter === key ? "white" : "var(--text-muted)", fontFamily: "var(--font-display)", fontWeight: 600, fontSize: "13px", cursor: "pointer", transition: "all 0.2s ease" }}>
@@ -189,9 +336,14 @@ export default function HomePage() {
               <div key={label} style={{ background: "var(--surface)", borderRadius: "var(--radius)", border: "1px solid var(--border)", overflow: "hidden" }}>
                 <div style={{ padding: "12px 14px 8px", borderBottom: "1px solid var(--border)" }}><p style={{ fontFamily: "var(--font-display)", fontWeight: 700, fontSize: "12px", color: "var(--text-muted)", textTransform: "uppercase" }}>{label}</p></div>
                 <div style={{ padding: "6px 8px" }}>
-                  {communities.map(({ name, slug, icon }) => (
+                  {communities.map(({ name, slug, icon: Icon }) => (
                     <Link key={slug} href={`/c/${slug}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 8px", borderRadius: "8px", textDecoration: "none" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}><span style={{ fontSize: "14px" }}>{icon}</span><span style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: "12.5px", color: "var(--text)" }}>{name}</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <span style={{ fontSize: "14px", display: "flex", alignItems: "center", justifyItems: "center" }}>
+                          {typeof Icon === "string" ? Icon : <Icon size={14} style={{ color: "var(--teal)" }} />}
+                        </span>
+                        <span style={{ fontFamily: "var(--font-display)", fontWeight: 500, fontSize: "12.5px", color: "var(--text)" }}>{name}</span>
+                      </div>
                       <ChevronRight size={12} color="var(--text-light)" />
                     </Link>
                   ))}

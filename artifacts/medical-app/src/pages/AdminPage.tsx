@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AppShell from "@/components/AppShell";
 import { createClient } from "@/lib/supabase";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
+import { NIGERIAN_UNIVERSITIES } from "@/lib/constants";
 import {
-
-
-
   Shield, TrendingUp, Search, Check, X, Flag, Download,
   VolumeX, Volume2, Ban, UserX, Unlock, Lock, Eye, Trash2, ChevronDown,
+  Bot, Users, Megaphone,
 } from "lucide-react";
 
 interface Profile {
@@ -69,7 +68,7 @@ const roleColors: Record<string, { bg: string; color: string }> = {
   student:     { bg: "#EDFFF5", color: "#3DBE7A" },
 };
 
-type Tab = "overview" | "users" | "posts" | "communities" | "reports" | "audit" | "community_requests" | "security_vault" | "news_moderators" | "pending_review";
+type Tab = "overview" | "users" | "posts" | "communities" | "reports" | "audit" | "community_requests" | "security_vault" | "news_moderators" | "pending_review" | "announcements";
 
 const SkeletonLoader = ({ width = "100%", height = "20px", count = 1 }: any) => (
   <>
@@ -118,6 +117,7 @@ export default function AdminPage() {
 
   // News moderation
   const [moderators, setModerators] = useState<any[]>([]);
+  const [newsPosts, setNewsPosts] = useState<any[]>([]);
   const [pendingDrafts, setPendingDrafts] = useState<any[]>([]);
   const [pendingDraftCount, setPendingDraftCount] = useState(0);
   const [assigningModerator, setAssigningModerator] = useState(false);
@@ -127,6 +127,84 @@ export default function AdminPage() {
   const [modPermissions, setModPermissions] = useState<string[]>(["news:create", "news:edit_own"]);
   const [modScope, setModScope] = useState<string[]>(["global"]);
   const [modActionLoading, setModActionLoading] = useState(false);
+
+  // Edit/CRUD states for News & Communities
+  const [editingNews, setEditingNews] = useState<any>(null);
+  const [newsEditTitle, setNewsEditTitle] = useState("");
+  const [newsEditContent, setNewsEditContent] = useState("");
+  const [newsEditCategory, setNewsEditCategory] = useState("");
+
+  const [editingCommunity, setEditingCommunity] = useState<any>(null);
+  const [commEditName, setCommEditName] = useState("");
+  const [commEditSlug, setCommEditSlug] = useState("");
+  const [commEditDesc, setCommEditDesc] = useState("");
+  const [commEditCategory, setCommEditCategory] = useState("");
+
+  // News & Community Broadcast updates state
+  const [broadcastType, setBroadcastType] = useState<"news" | "community">("news");
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastContent, setBroadcastContent] = useState("");
+  const [broadcastExcerpt, setBroadcastExcerpt] = useState("");
+  const [broadcastSimplified, setBroadcastSimplified] = useState("");
+  const [broadcastCategory, setBroadcastCategory] = useState("Nigeria pediatric policy");
+  const [broadcastCommunityId, setBroadcastCommunityId] = useState("");
+  const [broadcastIsPinned, setBroadcastIsPinned] = useState(true);
+  const [broadcastIsAnnouncement, setBroadcastIsAnnouncement] = useState(true);
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
+  const [broadcastSuccess, setBroadcastSuccess] = useState("");
+  const [broadcastError, setBroadcastError] = useState("");
+
+  const handleSubmitBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastTitle.trim() || !broadcastContent.trim()) {
+      setBroadcastError("Title and content are required.");
+      return;
+    }
+    setBroadcastLoading(true);
+    setBroadcastError("");
+    setBroadcastSuccess("");
+
+    try {
+      if (broadcastType === "news") {
+        const { error: insertErr } = await supabase.from("news_posts").insert({
+          title: broadcastTitle,
+          content: broadcastContent,
+          excerpt: broadcastExcerpt || broadcastContent.substring(0, 150),
+          simplified_content: broadcastSimplified || undefined,
+          category: broadcastCategory,
+          status: "published",
+          created_by: currentUserId || undefined,
+          created_at: new Date().toISOString()
+        });
+        if (insertErr) throw insertErr;
+        await logAudit("Published direct global news bulletin: " + broadcastTitle, "news_post", "direct");
+      } else {
+        const { error: insertErr } = await supabase.from("posts").insert({
+          title: broadcastTitle,
+          content: broadcastContent,
+          category: broadcastCategory || "General Support",
+          is_announcement: broadcastIsAnnouncement,
+          is_pinned: broadcastIsPinned,
+          community_id: broadcastCommunityId || null,
+          author_id: currentUserId || undefined,
+          is_anonymous: false,
+          created_at: new Date().toISOString()
+        });
+        if (insertErr) throw insertErr;
+        await logAudit("Published direct community announcement: " + broadcastTitle, "post", "direct");
+      }
+
+      setBroadcastSuccess(`Successfully published internal broadcast for ${broadcastType === "news" ? "News Bulletin" : "Community Announcement"}!`);
+      setBroadcastTitle("");
+      setBroadcastContent("");
+      setBroadcastExcerpt("");
+      setBroadcastSimplified("");
+    } catch (err: any) {
+      setBroadcastError(err.message || `Failed to broadcast ${broadcastType}.`);
+    } finally {
+      setBroadcastLoading(false);
+    }
+  };
 
   // Filters
   const [searchUsers, setSearchUsers] = useState("");
@@ -162,6 +240,22 @@ export default function AdminPage() {
   const [userPostsLoading, setUserPostsLoading] = useState(false);
 
   const usersPerPage = 20;
+  const usersTabInitialized = useRef(false);
+
+  // Re-query the users table server-side whenever search/role/profession filters change,
+  // instead of only filtering whatever 20 rows happen to be on the current page.
+  useEffect(() => {
+    if (!usersTabInitialized.current) {
+      // Skip the very first render — fetchAllData() already loaded page 1 unfiltered.
+      usersTabInitialized.current = true;
+      return;
+    }
+    const debounce = setTimeout(() => {
+      setUserPage(1);
+      fetchUsersPage(1, searchUsers, filterRole, filterProfession);
+    }, 350);
+    return () => clearTimeout(debounce);
+  }, [searchUsers, filterRole, filterProfession]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -247,17 +341,17 @@ export default function AdminPage() {
         ? supabase.from("user_permissions").select(`*, user:profiles(id, username, full_name, role)`).order("updated_at", { ascending: false })
         : Promise.resolve({ data: [] });
 
-      const pendingDraftsQuery = (isAdmin || isSuper)
-        ? supabase.from("news_posts").select(`*, author:profiles!news_posts_created_by_fkey(full_name, username, role)`).eq("status", "draft").order("created_at", { ascending: false })
+      const newsPostsQuery = (isAdmin || isSuper)
+        ? supabase.from("news_posts").select(`*, author:profiles!news_posts_created_by_fkey(full_name, username, role)`).order("created_at", { ascending: false })
         : Promise.resolve({ data: [] });
 
       const [
         userCountRes, postCountRes, commentCountRes, communityCountRes,
         usersRes, postsRes, communitiesRes, reportsRes, auditRes, requestsRes,
-        moderatorsRes, pendingDraftsRes,
+        moderatorsRes, newsPostsRes,
       ] = await Promise.all([
         ...countPromises, usersQuery, postsQuery, communitiesQuery,
-        reportsQuery, auditQuery, requestsQuery, moderatorsQuery, pendingDraftsQuery,
+        reportsQuery, auditQuery, requestsQuery, moderatorsQuery, newsPostsQuery,
       ]);
 
       if (usersRes.error) console.error("Users error:", usersRes.error);
@@ -293,8 +387,11 @@ export default function AdminPage() {
       setCommunityRequests((requestsRes.data as CommunityRequest[]) || []);
       setPendingRequestCount(pendingRequests);
       setModerators((moderatorsRes.data as any[]) || []);
-      setPendingDrafts((pendingDraftsRes.data as any[]) || []);
-      setPendingDraftCount((pendingDraftsRes.data as any[])?.length || 0);
+      const allNews = (newsPostsRes.data as any[]) || [];
+      setNewsPosts(allNews);
+      const drafts = allNews.filter((n: any) => n.status === "draft");
+      setPendingDrafts(drafts);
+      setPendingDraftCount(drafts.length);
 
       const activity: any[] = [];
       (usersRes.data || []).slice(0, 5).forEach((u: any) => {
@@ -320,23 +417,78 @@ export default function AdminPage() {
     }
   }
 
-  async function fetchUsersPage(page: number) {
+  async function fetchUsersPage(page: number, search = searchUsers, role = filterRole, profession = filterProfession) {
     const from = (page - 1) * usersPerPage;
     const to = from + usersPerPage - 1;
-    const { data, error } = await supabase
+
+    let query = supabase
       .from("profiles")
-      .select("id, username, full_name, profession, role, created_at, is_suspended, is_muted, is_banned, institution, study_year")
-      .order("created_at", { ascending: false })
-      .range(from, to);
-    if (error) console.error("fetchUsersPage error:", error);
-    if (!error && data) setUsers(data);
+      .select("id, username, full_name, profession, role, created_at, is_suspended, is_muted, is_banned, institution, study_year", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (search.trim()) {
+      const term = search.trim().replace(/[%,]/g, "");
+      query = query.or(`username.ilike.%${term}%,full_name.ilike.%${term}%`);
+    }
+    if (role) query = query.eq("role", role);
+    if (profession) query = query.eq("profession", profession);
+
+    const { data, error, count } = await query.range(from, to);
+    if (error) {
+      console.error("fetchUsersPage error:", error);
+      return;
+    }
+    setUsers(data || []);
+    setUserTotalCount(count || 0);
   }
 
   async function updateUserRole(userId: string, newRole: string) {
-    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
-    if (error) { alert("Failed to update role: " + error.message); return; }
-    await logAudit("Changed role to " + newRole, "user", userId);
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+    try {
+      const { data: targetUser, error: targetError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      
+      if (targetError) {
+        alert("Failed to confirm user's current role: " + targetError.message);
+        return;
+      }
+      const targetOldRole = targetUser?.role || "student";
+
+      const isSuper = currentRole === "super_admin";
+      const isAppAdm = currentRole === "app_admin" || currentRole === "admin";
+
+      if (isSuper) {
+        if (newRole === "super_admin" && currentUserId !== userId) {
+          alert("Only emergency quorum protocols can authorize additional super admin delegations.");
+          return;
+        }
+      } else if (isAppAdm) {
+        if (
+          newRole === "admin" || 
+          newRole === "app_admin" || 
+          newRole === "super_admin" ||
+          targetOldRole === "admin" ||
+          targetOldRole === "app_admin" ||
+          targetOldRole === "super_admin"
+        ) {
+          alert("Permission Denied: As an Admin, you are only authorized to assign or remove 'moderator' status. Assigning or removing higher administrative roles like Admin or App Admin requires a Super Admin.");
+          return;
+        }
+      } else {
+        alert("Permission Denied: You do not have role delegation privileges.");
+        return;
+      }
+
+      const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", userId);
+      if (error) { alert("Failed to update role: " + error.message); return; }
+      await logAudit("Changed role to " + newRole, "user", userId);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u)));
+      alert(`Role successfully changed to ${newRole}`);
+    } catch (err: any) {
+      alert("Error delegating role: " + err.message);
+    }
   }
 
   async function toggleUserSuspend(userId: string, currentStatus: boolean) {
@@ -484,6 +636,53 @@ export default function AdminPage() {
     setCommunities((prev) => prev.filter((c) => c.id !== communityId));
   }
 
+  async function handleUpdateCommunity(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingCommunity) return;
+    const { error } = await supabase.from("communities").update({
+      name: commEditName,
+      slug: commEditSlug,
+      description: commEditDesc,
+      category: commEditCategory
+    }).eq("id", editingCommunity.id);
+
+    if (error) { alert("Failed to update community: " + error.message); return; }
+    await logAudit("Edited community profiles details", "community", editingCommunity.id);
+    setCommunities((prev) => prev.map((c) => (c.id === editingCommunity.id ? { ...c, name: commEditName, slug: commEditSlug, description: commEditDesc, category: commEditCategory } : c)));
+    setEditingCommunity(null);
+    alert("Community successfully updated.");
+  }
+
+  async function handleUpdateNews(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingNews) return;
+    const { error } = await supabase.from("news_posts").update({
+      title: newsEditTitle,
+      content: newsEditContent,
+      category: newsEditCategory,
+      excerpt: newsEditContent.substring(0, 150)
+    }).eq("id", editingNews.id);
+
+    if (error) { alert("Failed to update news post: " + error.message); return; }
+    await logAudit("Edited news post details", "news_post", editingNews.id);
+    setNewsPosts((prev) => prev.map((n) => (n.id === editingNews.id ? { ...n, title: newsEditTitle, content: newsEditContent, category: newsEditCategory } : n)));
+    // Also sync the pendingDrafts if applicable
+    setPendingDrafts((prev) => prev.map((n) => (n.id === editingNews.id ? { ...n, title: newsEditTitle, content: newsEditContent, category: newsEditCategory } : n)));
+    setEditingNews(null);
+    alert("News article successfully updated.");
+  }
+
+  async function handleDeleteNews(postId: string) {
+    if (!confirm("Are you sure you want to permanently delete this news post?")) return;
+    const { error } = await supabase.from("news_posts").delete().eq("id", postId);
+    if (error) { alert("Failed to delete news post: " + error.message); return; }
+    await logAudit("Deleted news post", "news_post", postId);
+    setNewsPosts((prev) => prev.filter((n) => n.id !== postId));
+    setPendingDrafts((prev) => prev.filter((n) => n.id !== postId));
+    setPendingDraftCount((prev) => Math.max(0, prev - 1));
+    alert("News article deleted.");
+  }
+
   async function handleResolveReport(reportId: string) {
     const { error } = await supabase.from("reports").update({ status: "resolved" }).eq("id", reportId);
     if (error) { alert("Failed: " + error.message); return; }
@@ -524,12 +723,8 @@ export default function AdminPage() {
     setVaultAuditsLoading(false);
   }
 
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch = !searchUsers || u.username.toLowerCase().includes(searchUsers.toLowerCase()) || (u.full_name || "").toLowerCase().includes(searchUsers.toLowerCase());
-    const matchesRole = !filterRole || u.role === filterRole;
-    const matchesProfession = !filterProfession || u.profession === filterProfession;
-    return matchesSearch && matchesRole && matchesProfession;
-  });
+  // Note: users are now filtered server-side in fetchUsersPage (search/role/profession),
+  // so `users` already reflects the active filters — no client-side re-filter needed here.
 
   const filteredPosts = posts.filter((p) => {
     const matchesSearch = !searchPosts || (p.title || "").toLowerCase().includes(searchPosts.toLowerCase()) || p.content.toLowerCase().includes(searchPosts.toLowerCase());
@@ -620,7 +815,7 @@ export default function AdminPage() {
   }
 
   const isSuper = currentRole === "super_admin";
-  const isAdmin = isAppAdmin(currentRole);
+  const isAdmin = isAppAdmin(currentRole) || isSuper;
   const isMod = currentRole === "moderator";
 
   const tabs: { id: Tab; label: string; icon: any; badge?: number; adminOnly?: boolean; superOnly?: boolean }[] = [
@@ -634,6 +829,7 @@ export default function AdminPage() {
     { id: "security_vault", label: "Security Vault", icon: Lock, superOnly: true },
     { id: "news_moderators", label: "News Moderators", icon: Shield, adminOnly: true },
     { id: "pending_review", label: "Pending Review", icon: Check, badge: pendingDraftCount, adminOnly: true },
+    { id: "announcements", label: "Broadcast Announcements", icon: Megaphone, adminOnly: true },
   ];
 
   return (
@@ -706,6 +902,38 @@ export default function AdminPage() {
                   ))}
                 </div>
 
+                {/* Moderation Panels Shortcuts */}
+                {isAdmin && (
+                  <div style={{ marginBottom: "24px" }}>
+                    <h3 style={{ margin: "0 0 16px 0", fontSize: "16px", color: "var(--text)" }}>Moderation Panels</h3>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+                      <Link href="/admin/ai-models" style={{ textDecoration: "none" }}>
+                        <div style={{ padding: "20px", borderRadius: "16px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer", transition: "transform 0.2s" }}>
+                          <span style={{ background: "rgba(155,109,255,0.1)", borderRadius: "12px", padding: "12px", display: "inline-flex", color: "#9B6DFF" }}>
+                            <Bot size={24} />
+                          </span>
+                          <div>
+                            <h4 style={{ margin: "0 0 4px 0", fontSize: "15px", fontWeight: 700, color: "var(--text)" }}>AI-Model Moderation</h4>
+                            <p style={{ margin: 0, fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>Control AI tutor prompts, training rules, and toxic moderation parameters.</p>
+                          </div>
+                        </div>
+                      </Link>
+
+                      <Link href="/admin/community-requests" style={{ textDecoration: "none" }}>
+                        <div style={{ padding: "20px", borderRadius: "16px", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: "16px", cursor: "pointer", transition: "transform 0.2s" }}>
+                          <span style={{ background: "rgba(61,190,122,0.1)", borderRadius: "12px", padding: "12px", display: "inline-flex", color: "#3DBE7A" }}>
+                            <Users size={24} />
+                          </span>
+                          <div>
+                            <h4 style={{ margin: "0 0 4px 0", fontSize: "15px", fontWeight: 700, color: "var(--text)" }}>Community Approvals</h4>
+                            <p style={{ margin: 0, fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.4 }}>Review proposed student groups, sub-specialty boards, and forum requests.</p>
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                  </div>
+                )}
+
                 {/* Recent Activity */}
                 <div style={{ padding: "20px", borderRadius: "16px", background: "var(--surface)", border: "1px solid var(--border)" }}>
                   <h3 style={{ margin: "0 0 16px 0", fontSize: "16px" }}>Recent Activity</h3>
@@ -775,7 +1003,7 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredUsers.map((u) => (
+                      {users.map((u) => (
                         <tr key={u.id} style={{ borderBottom: "1px solid var(--border)" }}>
                           <td style={{ padding: "12px" }}>
                             <div style={{ fontWeight: 600 }}>{u.username}</div>
@@ -912,6 +1140,34 @@ export default function AdminPage() {
 
             {tab === "communities" && (isAdmin || isSuper) && (
               <div>
+                {editingCommunity && (
+                  <form onSubmit={handleUpdateCommunity} style={{ background: "var(--surface)", border: "2px solid var(--accent)", borderRadius: "12px", padding: "18px", marginBottom: "20px" }}>
+                    <h4 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "12px", color: "var(--accent)" }}>Edit Community: {editingCommunity.name}</h4>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "12px" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Community Name</label>
+                        <input type="text" value={commEditName} onChange={(e) => setCommEditName(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)" }} required />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Slug</label>
+                        <input type="text" value={commEditSlug} onChange={(e) => setCommEditSlug(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)" }} required />
+                      </div>
+                    </div>
+                    <div style={{ marginBottom: "12px" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Description</label>
+                      <textarea value={commEditDesc} onChange={(e) => setCommEditDesc(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)", minHeight: "60px" }} />
+                    </div>
+                    <div style={{ marginBottom: "12px" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Category</label>
+                      <input type="text" value={commEditCategory} onChange={(e) => setCommEditCategory(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                      <button type="button" onClick={() => setEditingCommunity(null)} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: "13px" }}>Cancel</button>
+                      <button type="submit" style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--accent)", color: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>Save Updates</button>
+                    </div>
+                  </form>
+                )}
+
                 <div style={{ marginBottom: "16px" }}>
                   <div style={{ position: "relative", maxWidth: "400px" }}>
                     <Search size={16} style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }} />
@@ -941,16 +1197,24 @@ export default function AdminPage() {
                         {c.is_locked && <span style={{ padding: "4px 8px", borderRadius: "6px", background: "#FFF0F2", color: "#E8445A", fontSize: "11px", fontWeight: 600 }}>Locked</span>}
                         {c.user_created && <span style={{ padding: "4px 8px", borderRadius: "6px", background: "#EDFFF5", color: "#3DBE7A", fontSize: "11px", fontWeight: 600 }}>User-Created</span>}
                       </div>
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        <button onClick={() => handleToggleLockCommunity(c.id, !!c.is_locked)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "rgba(0,0,0,0.03)", cursor: "pointer", fontSize: "13px" }}>
-                          {c.is_locked ? <Unlock size={14} style={{ display: "inline", marginRight: "4px" }} /> : <Lock size={14} style={{ display: "inline", marginRight: "4px" }} />}
+                      <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                        <button onClick={() => handleToggleLockCommunity(c.id, !!c.is_locked)} style={{ flex: 1, padding: "6px", borderRadius: "8px", border: "none", background: "rgba(0,0,0,0.03)", cursor: "pointer", fontSize: "12px" }}>
                           {c.is_locked ? "Unlock" : "Lock"}
                         </button>
-                        <button onClick={() => handleToggleFeatureCommunity(c.id, !!c.is_featured)} style={{ flex: 1, padding: "8px", borderRadius: "8px", border: "none", background: "rgba(0,0,0,0.03)", cursor: "pointer", fontSize: "13px" }}>
+                        <button onClick={() => handleToggleFeatureCommunity(c.id, !!c.is_featured)} style={{ flex: 1, padding: "6px", borderRadius: "8px", border: "none", background: "rgba(0,0,0,0.03)", cursor: "pointer", fontSize: "12px" }}>
                           {c.is_featured ? "Unfeature" : "Feature"}
                         </button>
-                        <button onClick={() => handleDeleteCommunity(c.id)} style={{ padding: "8px", borderRadius: "8px", border: "none", background: "#FFF0F2", cursor: "pointer", color: "#E8445A" }}>
-                          <Trash2 size={14} />
+                        <button onClick={() => {
+                          setEditingCommunity(c);
+                          setCommEditName(c.name);
+                          setCommEditSlug(c.slug || "");
+                          setCommEditDesc(c.description || "");
+                          setCommEditCategory(c.category || "General");
+                        }} style={{ flex: 1, padding: "6px", borderRadius: "8px", border: "none", background: "rgba(13,148,136,0.1)", color: "#0D9488", cursor: "pointer", fontSize: "12px", fontWeight: 600 }}>
+                          Edit
+                        </button>
+                        <button onClick={() => handleDeleteCommunity(c.id)} style={{ padding: "6px", borderRadius: "8px", border: "none", background: "#FFF0F2", cursor: "pointer", color: "#E8445A" }}>
+                          <Trash2 size={12} />
                         </button>
                       </div>
                     </div>
@@ -1452,9 +1716,34 @@ export default function AdminPage() {
 
             {tab === "pending_review" && (isAdmin || isSuper) && (
               <div>
-                <h3 style={{ margin: "0 0 20px 0", fontSize: "18px" }}>Pending Drafts ({pendingDraftCount})</h3>
+                {editingNews && (
+                  <form onSubmit={handleUpdateNews} style={{ background: "var(--surface)", border: "2px solid var(--accent)", borderRadius: "12px", padding: "18px", marginBottom: "20px" }}>
+                    <h4 style={{ fontSize: "16px", fontWeight: 700, marginBottom: "12px", color: "var(--accent)" }}>Edit News Article: {editingNews.title}</h4>
+                    <div style={{ marginBottom: "12px" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Article Title</label>
+                      <input type="text" value={newsEditTitle} onChange={(e) => setNewsEditTitle(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)" }} required />
+                    </div>
+                    <div style={{ marginBottom: "12px" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Content</label>
+                      <textarea value={newsEditContent} onChange={(e) => setNewsEditContent(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)", minHeight: "150px" }} required />
+                    </div>
+                    <div style={{ marginBottom: "12px" }}>
+                      <label style={{ display: "block", fontSize: "12px", fontWeight: 600, marginBottom: "4px" }}>Category</label>
+                      <input type="text" value={newsEditCategory} onChange={(e) => setNewsEditCategory(e.target.value)} style={{ width: "100%", padding: "8px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--background)", color: "var(--text)" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: "8px", justifyContent: "flex-end" }}>
+                      <button type="button" onClick={() => setEditingNews(null)} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid var(--border)", background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: "13px" }}>Cancel</button>
+                      <button type="submit" style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--accent)", color: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>Save Article Updates</button>
+                    </div>
+                  </form>
+                )}
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                  <h3 style={{ margin: 0, fontSize: "18px" }}>Pending Drafts ({pendingDraftCount})</h3>
+                  <button onClick={() => navigate("/news")} style={{ padding: "8px 16px", borderRadius: "8px", border: "none", background: "var(--accent)", color: "white", cursor: "pointer", fontSize: "13px", fontWeight: 600 }}>+ Create News Article</button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginBottom: "32px" }}>
                   {pendingDrafts.map((draft) => (
                     <div key={draft.id} style={{
                       padding: "16px",
@@ -1469,19 +1758,22 @@ export default function AdminPage() {
                             By {draft.author?.full_name || draft.author?.username || "Unknown"} · {new Date(draft.created_at).toLocaleDateString()}
                           </div>
                         </div>
-                        <span style={{
-                          padding: "4px 10px",
-                          borderRadius: "99px",
-                          background: "#FFF8EC",
-                          color: "#F5A623",
-                          fontSize: "11px",
-                          fontWeight: 600,
-                        }}>
-                          Draft
-                        </span>
+                        <div style={{ display: "flex", gap: "6px" }}>
+                          <span style={{
+                            padding: "4px 10px",
+                            borderRadius: "99px",
+                            background: "#FFF8EC",
+                            color: "#F5A623",
+                            fontSize: "11px",
+                            fontWeight: 600,
+                          }}>
+                            Draft
+                          </span>
+                          <span style={{ padding: "4px 8px", borderRadius: "6px", background: "rgba(0,0,0,0.03)", fontSize: "11px", color: "var(--text-muted)" }}>{draft.category}</span>
+                        </div>
                       </div>
                       <div style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: "12px", lineHeight: 1.5 }}>
-                        {draft.excerpt || draft.body?.substring(0, 200)}{draft.body?.length > 200 ? "..." : ""}
+                        {draft.excerpt || draft.content?.substring(0, 200)}{draft.content?.length > 200 ? "..." : ""}
                       </div>
                       <div style={{ display: "flex", gap: "8px" }}>
                         <button
@@ -1515,7 +1807,108 @@ export default function AdminPage() {
                           <X size={14} style={{ display: "inline", marginRight: "4px" }} /> Reject
                         </button>
                         <button
-                          onClick={() => navigate(`/news/${draft.id}`)}
+                          onClick={() => {
+                            setEditingNews(draft);
+                            setNewsEditTitle(draft.title);
+                            setNewsEditContent(draft.content || "");
+                            setNewsEditCategory(draft.category || "General");
+                          }}
+                          style={{
+                            padding: "8px 14px",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border)",
+                            background: "rgba(13,148,136,0.1)",
+                            color: "#0D9488",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Edit Draft
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNews(draft.id)}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: "8px",
+                            border: "none",
+                            background: "#FFF0F2",
+                            color: "#E8445A",
+                            fontSize: "13px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingDrafts.length === 0 && (
+                    <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "40px" }}>No drafts pending review. All caught up!</p>
+                  )}
+                </div>
+
+                <hr style={{ border: "0", borderTop: "1px solid var(--border)", margin: "32px 0" }} />
+
+                <h3 style={{ margin: "0 0 20px 0", fontSize: "18px" }}>Published News Articles ({newsPosts.filter(n => n.status === "published").length})</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {newsPosts.filter((n) => n.status === "published").map((art) => (
+                    <div key={art.id} style={{
+                      padding: "16px",
+                      borderRadius: "12px",
+                      background: "var(--surface)",
+                      border: "1px solid var(--border)",
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px" }}>
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "15px" }}>{art.title}</div>
+                          <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>
+                            By {art.author?.full_name || art.author?.username || "Admin"} · {new Date(art.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <span style={{ padding: "4px 8px", borderRadius: "6px", background: "rgba(13,148,136,0.1)", color: "#0D9488", fontSize: "11px", fontWeight: 600 }}>{art.category || "General"}</span>
+                      </div>
+                      <div style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: "12px", lineHeight: 1.5 }}>
+                        {art.excerpt || art.content?.substring(0, 200)}{art.content?.length > 200 ? "..." : ""}
+                      </div>
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        <button
+                          onClick={() => {
+                            setEditingNews(art);
+                            setNewsEditTitle(art.title);
+                            setNewsEditContent(art.content || "");
+                            setNewsEditCategory(art.category || "General");
+                          }}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: "8px",
+                            border: "1px solid var(--border)",
+                            background: "rgba(13,148,136,0.1)",
+                            color: "#0D9488",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Edit Article
+                        </button>
+                        <button
+                          onClick={() => handleDeleteNews(art.id)}
+                          style={{
+                            padding: "8px 16px",
+                            borderRadius: "8px",
+                            border: "none",
+                            background: "#FFF0F2",
+                            color: "#E8445A",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          <Trash2 size={14} style={{ display: "inline", marginRight: "4px" }} /> Delete
+                        </button>
+                        <button
+                          onClick={() => navigate(`/news`)}
                           style={{
                             padding: "8px 16px",
                             borderRadius: "8px",
@@ -1526,15 +1919,176 @@ export default function AdminPage() {
                             cursor: "pointer",
                           }}
                         >
-                          Preview
+                          View Board
                         </button>
                       </div>
                     </div>
                   ))}
-                  {pendingDrafts.length === 0 && (
-                    <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "40px" }}>No drafts pending review. All caught up!</p>
+                  {newsPosts.filter((n) => n.status === "published").length === 0 && (
+                    <p style={{ color: "var(--text-muted)", textAlign: "center", padding: "40px" }}>No published news articles found. Publish a draft or create an article above!</p>
                   )}
                 </div>
+              </div>
+            )}
+
+            {tab === "announcements" && (isAdmin || isSuper) && (
+              <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "16px", padding: "28px" }}>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", marginBottom: "20px" }}>
+                  <Megaphone size={24} style={{ color: "var(--accent)" }} />
+                  <h3 style={{ margin: 0, fontSize: "20px", fontWeight: 700 }}>Direct Broadcast Channel</h3>
+                </div>
+                <p style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: "24px", lineHeight: "1.6" }}>
+                  Compose official campus bulletins and distribute them across channels. Direct global updates automatically bypass moderation reviews and publish instantly.
+                </p>
+
+                <div style={{ display: "flex", gap: "12px", marginBottom: "24px" }}>
+                  <button
+                    onClick={() => { setBroadcastType("news"); setBroadcastError(""); setBroadcastSuccess(""); }}
+                    type="button"
+                    style={{
+                      flex: 1, padding: "12px", borderRadius: "10px", fontWeight: 600, fontSize: "14px", cursor: "pointer",
+                      border: broadcastType === "news" ? "2px solid var(--accent)" : "1px solid var(--border)",
+                      background: broadcastType === "news" ? "rgba(61, 190, 122, 0.05)" : "var(--surface)",
+                      color: broadcastType === "news" ? "var(--accent)" : "var(--text)"
+                    }}
+                  >
+                    📢 Direct Global News Bulletin
+                  </button>
+                  <button
+                    onClick={() => { setBroadcastType("community"); setBroadcastError(""); setBroadcastSuccess(""); }}
+                    type="button"
+                    style={{
+                      flex: 1, padding: "12px", borderRadius: "10px", fontWeight: 600, fontSize: "14px", cursor: "pointer",
+                      border: broadcastType === "community" ? "2px solid var(--accent)" : "1px solid var(--border)",
+                      background: broadcastType === "community" ? "rgba(61, 190, 122, 0.05)" : "var(--surface)",
+                      color: broadcastType === "community" ? "var(--accent)" : "var(--text)"
+                    }}
+                  >
+                    👥 Community/Circle Announcement
+                  </button>
+                </div>
+
+                <form onSubmit={handleSubmitBroadcast} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>Title / Header</label>
+                    <input
+                      type="text"
+                      placeholder={broadcastType === "news" ? "RTS,S Malaria Vaccine Rollout Updates..." : "Important Examination Schedule Bulletin..."}
+                      value={broadcastTitle}
+                      onChange={(e) => setBroadcastTitle(e.target.value)}
+                      style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text)", boxSizing: "border-box" }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>Select Topic Category</label>
+                    <select
+                      value={broadcastCategory}
+                      onChange={(e) => setBroadcastCategory(e.target.value)}
+                      style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text)", boxSizing: "border-box" }}
+                    >
+                      {broadcastType === "news" ? (
+                        <>
+                          <option value="Nigeria pediatric policy">Nigeria Pediatric Policy</option>
+                          <option value="Global Health Breakthroughs">Global Health Breakthroughs</option>
+                          <option value="Anatomy syllabus revisions">Anatomy Syllabus Revisions</option>
+                          <option value="Mental Wellness peer bulletins">Mental Wellness Peer Bulletins</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="Pharmacology">Pharmacology</option>
+                          <option value="Gross Anatomy">Gross Anatomy</option>
+                          <option value="Physiology">Physiology</option>
+                          <option value="Clinical Pathology">Clinical Pathology</option>
+                          <option value="General Support">General Support</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+
+                  {broadcastType === "news" && (
+                    <>
+                      <div>
+                        <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>Brief Excerpt</label>
+                        <input
+                          type="text"
+                          placeholder="Short summary displayed in the news list cards..."
+                          value={broadcastExcerpt}
+                          onChange={(e) => setBroadcastExcerpt(e.target.value)}
+                          style={{ width: "100%", padding: "11px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text)", boxSizing: "border-box" }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>Simplified Version (Docu mode)</label>
+                        <textarea
+                          rows={3}
+                          placeholder="Provide a plain, jargon-free summary for medical students..."
+                          value={broadcastSimplified}
+                          onChange={(e) => setBroadcastSimplified(e.target.value)}
+                          style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text)", resize: "none", boxSizing: "border-box" }}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {broadcastType === "community" && (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <input
+                          type="checkbox"
+                          id="broadcast-announce"
+                          checked={broadcastIsAnnouncement}
+                          onChange={(e) => setBroadcastIsAnnouncement(e.target.checked)}
+                          style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                        />
+                        <label htmlFor="broadcast-announce" style={{ fontSize: "13px", fontWeight: 500, cursor: "pointer" }}>Official Announcement Badge</label>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <input
+                          type="checkbox"
+                          id="broadcast-pin"
+                          checked={broadcastIsPinned}
+                          onChange={(e) => setBroadcastIsPinned(e.target.checked)}
+                          style={{ width: "16px", height: "16px", cursor: "pointer" }}
+                        />
+                        <label htmlFor="broadcast-pin" style={{ fontSize: "13px", fontWeight: 500, cursor: "pointer" }}>Pin to top of feed</label>
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: 600, marginBottom: "6px" }}>Broadcast Body Text</label>
+                    <textarea
+                      rows={6}
+                      placeholder="Write the complete text..."
+                      value={broadcastContent}
+                      onChange={(e) => setBroadcastContent(e.target.value)}
+                      style={{ width: "100%", padding: "12px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface-muted)", color: "var(--text)", resize: "none", boxSizing: "border-box" }}
+                    />
+                  </div>
+
+                  {broadcastSuccess && (
+                    <p style={{ margin: 0, padding: "10px 14px", background: "#EDFFF5", border: "1px solid #c2f0d5", color: "#3DBE7A", borderRadius: "8px", fontSize: "13px", fontWeight: 500 }}>
+                      {broadcastSuccess}
+                    </p>
+                  )}
+
+                  {broadcastError && (
+                    <p style={{ margin: 0, padding: "10px 14px", background: "#FFF0F2", border: "1px solid #fecdd3", color: "#E8445A", borderRadius: "8px", fontSize: "13px", fontWeight: 500 }}>
+                      {broadcastError}
+                    </p>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={broadcastLoading}
+                    style={{
+                      width: "100%", padding: "13px", borderRadius: "10px", border: "none", background: "var(--gradient)", color: "white", fontWeight: 700, fontSize: "14px", cursor: broadcastLoading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px"
+                    }}
+                  >
+                    <Megaphone size={16} /> {broadcastLoading ? "Broadcasting..." : `Publish Broadcast Instantly 🚀`}
+                  </button>
+                </form>
               </div>
             )}
           </>

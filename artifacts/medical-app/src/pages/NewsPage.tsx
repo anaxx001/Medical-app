@@ -5,7 +5,8 @@ import LoadingList from "@/components/LoadingList";
 import EmptyState from "@/components/EmptyState";
 import { createClient } from "@/lib/supabase";
 import { formatDateFull, timeAgo } from "@/lib/formatters";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { NIGERIAN_UNIVERSITIES } from "@/lib/constants";
 
 interface NewsPost {
   id: string;
@@ -74,6 +75,8 @@ export default function NewsPage() {
   const [showUniDropdown, setShowUniDropdown] = useState(false);
   const [selectedUniversity, setSelectedUniversity] = useState<string>("all");
   const [userUniversity, setUserUniversity] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [, navigate] = useLocation();
   const supabase = createClient();
 
   useEffect(() => {
@@ -82,13 +85,18 @@ export default function NewsPage() {
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
+          setCurrentUserId(user.id);
           const { data: profile } = await supabase
             .from("profiles")
             .select("role, university")
             .eq("id", user.id)
             .single();
 
-          if (profile?.role) setUserRole(profile.role);
+          if (profile?.role) {
+            setUserRole(profile.role);
+          } else {
+            setUserRole("student");
+          }
           if (profile?.university) setUserUniversity(profile.university);
 
           const { data: perms } = await supabase
@@ -152,8 +160,14 @@ export default function NewsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const canCreateNews = userPermissions.includes("news:create") || 
-    ["super_admin", "app_admin", "admin"].some(r => userRole?.toLowerCase().includes(r.replace("_", "")));
+  const canCreateNews = (userPermissions?.includes("news:create")) || 
+    ["super_admin", "app_admin", "admin", "moderator"].some(r => userRole?.toLowerCase()?.includes(r));
+
+  const canEditNews = (postCreatedBy: string) => {
+    const r = userRole?.toLowerCase();
+    const isAdmin = ["super_admin", "admin", "app_admin", "moderator"].some(role => r === role || r?.includes(role));
+    return isAdmin || userPermissions.includes("news:edit_all") || (postCreatedBy === currentUserId);
+  };
 
   const canPin = userPermissions.includes("news:pin");
 
@@ -290,6 +304,19 @@ export default function NewsPage() {
             }}>
               Campus News
             </h1>
+            {canCreateNews && (
+              <span style={{ 
+                fontSize: "11px", 
+                background: "rgba(13, 148, 136, 0.1)", 
+                color: "#0D9488", 
+                padding: "2px 8px", 
+                borderRadius: "99px",
+                fontWeight: 600,
+                marginLeft: "8px"
+              }}>
+                Admin View
+              </span>
+            )}
           </div>
 
           {canCreateNews && (
@@ -516,6 +543,23 @@ export default function NewsPage() {
                 ? `No news for ${NIGERIAN_UNIVERSITIES.find(u => u.slug === selectedUniversity)?.name || selectedUniversity}. Try "All" or check back later.`
                 : "Campus announcements and updates will appear here. Check back soon!"
             }
+            action={canCreateNews ? (
+              <Link href="/news/create">
+                <button style={{
+                  padding: "10px 20px",
+                  borderRadius: "12px",
+                  border: "none",
+                  background: "var(--gradient)",
+                  color: "white",
+                  fontWeight: 700,
+                  fontSize: "14px",
+                  cursor: "pointer",
+                  marginTop: "16px"
+                }}>
+                  Create News Bulletin
+                </button>
+              </Link>
+            ) : undefined}
           />
         )}
 
@@ -633,7 +677,28 @@ export default function NewsPage() {
                         </span>
                       </div>
 
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", color: "var(--text-muted)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "var(--text-muted)" }}>
+                        {canEditNews(post.created_by) && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigate(`/news/edit/${post.id}`);
+                            }}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: "6px",
+                              background: "rgba(13, 148, 136, 0.1)",
+                              color: "#0D9488",
+                              border: "none",
+                              fontSize: "12px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Edit
+                          </button>
+                        )}
                         <span style={{ fontSize: "12px" }}>
                           {isRecent ? timeAgo(post.created_at) : formatDateFull(post.created_at)}
                         </span>
