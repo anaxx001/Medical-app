@@ -1,0 +1,6 @@
+{
+  "name": "MedStudent",
+  "description": "A collaborative social study application for medical and health science students, featuring quizzes, flashcards, news updates, and collaborative forums.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
