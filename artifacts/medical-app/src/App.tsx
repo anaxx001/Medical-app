@@ -1,9 +1,12 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useParams } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { AuthProvider } from "@/hooks/useAuth";
+import { NotificationProvider } from "@/context/NotificationContext";
+import { AppNotificationCenter } from "@/components/AppNotificationCenter";
+import { FloatingChatbot } from "@/components/FloatingChatbot";
 import SplashScreen from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import ChatbotPage from "@/pages/ChatbotPage";
@@ -37,7 +40,11 @@ import CommunityWaitingPage from "@/pages/CommunityWaitingPage";
 import CommunityManagePage from "@/pages/CommunityManagePage";
 import CommunityCreatePostPage from "@/pages/CommunityCreatePostPage";
 import AdminCommunityReviewPage from "@/pages/AdminCommunityReviewPage";
+import AdminAIModelsPage from "@/pages/AdminAIModelsPage";
 import HelpPage from "@/pages/HelpPage";
+import TermsPage from "@/pages/TermsPage";
+import PrivacyPage from "@/pages/PrivacyPage";
+import GuidelinesPage from "@/pages/GuidelinesPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -46,9 +53,12 @@ interface ProtectedRouteProps {
   component: React.ComponentType<any>;
   isAuthenticated: boolean;
   isLoading: boolean;
+  [key: string]: any;
 }
 
-function ProtectedRoute({ component: Component, isAuthenticated, isLoading }: ProtectedRouteProps) {
+function ProtectedRoute({ component: Component, isAuthenticated, isLoading, ...rest }: ProtectedRouteProps) {
+  const params = useParams();
+
   if (isLoading) {
     return (
       <div style={{
@@ -75,7 +85,7 @@ function ProtectedRoute({ component: Component, isAuthenticated, isLoading }: Pr
     return <Redirect to="/login" />;
   }
 
-  return <Component />;
+  return <Component params={params} {...rest} />;
 }
 
 function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLoading: boolean }) {
@@ -129,15 +139,33 @@ function Router({ isAuthenticated, isLoading }: { isAuthenticated: boolean; isLo
       <Route path="/help">
         <ProtectedRoute component={HelpPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
-      <Route path="/admin">
-        <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
-      </Route>
       {/* Bug #11 fix: sidebar links to /admin/ai-models — must be above /admin to avoid prefix conflicts */}
       <Route path="/admin/ai-models">
-        <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+        <ProtectedRoute component={AdminAIModelsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/admin/community-requests">
         <ProtectedRoute component={AdminCommunityReviewPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/admin">
+        <ProtectedRoute component={AdminPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/popular">
+        <ProtectedRoute component={HomePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/recent">
+        <ProtectedRoute component={HomePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/my-posts">
+        <ProtectedRoute component={HomePage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/terms">
+        <ProtectedRoute component={TermsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/privacy">
+        <ProtectedRoute component={PrivacyPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
+      </Route>
+      <Route path="/guidelines">
+        <ProtectedRoute component={GuidelinesPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
       </Route>
       <Route path="/settings">
         <ProtectedRoute component={AppSettingsPage} isAuthenticated={isAuthenticated} isLoading={isLoading} />
@@ -236,7 +264,13 @@ function AppContent() {
     );
   }
 
-  return <Router isAuthenticated={isAuthenticated} isLoading={isLoading} />;
+  return (
+    <>
+      {isAuthenticated && <AppNotificationCenter />}
+      {isAuthenticated && <FloatingChatbot />}
+      <Router isAuthenticated={isAuthenticated} isLoading={isLoading} />
+    </>
+  );
 }
 
 function App() {
@@ -244,9 +278,11 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <AppContent />
-          </WouterRouter>
+          <NotificationProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppContent />
+            </WouterRouter>
+          </NotificationProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
