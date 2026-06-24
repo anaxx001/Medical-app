@@ -149,7 +149,7 @@ export default function NewsDetailPage({ params }: { params: { id: string } }) {
           <span style={{ background: "rgba(13,148,136,0.08)", color: "#0D9488", fontSize: "12px", fontWeight: 700, padding: "4px 10px", borderRadius: "6px" }}>
             {post.category || "Health News"}
           </span>
-          <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, background: "rgba(244,63,94,0.06)", color: "#F43F5E", padding: "4px 10px", borderRadius: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+          <span style={{ fontSize: "12px", fontWeight: 700, background: "rgba(244,63,94,0.06)", color: "#F43F5E", padding: "4px 10px", borderRadius: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
             <BookOpen size={12} /> Study This Linked Quiz Active
           </span>
         </div>
