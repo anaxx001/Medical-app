@@ -21,6 +21,7 @@ import {
   TrendingUp,
   Star,
   MessageCircle,
+  LayoutDashboard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -117,6 +118,7 @@ const CommunityLinkItem = ({
   onNavigate: (path: string) => void;
 }) => {
   const [loc] = useLocation();
+  const [imgError, setImgError] = useState(false);
   const isActive = loc === path || loc.startsWith(path + "/");
   return (
     <motion.button
@@ -140,8 +142,13 @@ const CommunityLinkItem = ({
         textAlign: "left",
       }}
     >
-      {iconUrl ? (
-        <img src={iconUrl} alt="" style={{ width: 20, height: 20, borderRadius: "4px", objectFit: "cover" }} />
+      {iconUrl && !imgError ? (
+        <img 
+          src={iconUrl} 
+          alt="" 
+          style={{ width: 20, height: 20, borderRadius: "4px", objectFit: "cover" }} 
+          onError={() => setImgError(true)} 
+        />
       ) : (
         <Users size={20} />
       )}
@@ -234,6 +241,7 @@ export default function Sidebar({ isOpen, onClose, userRole = "user" }: SidebarP
   };
 
   const mainLinks = [
+    { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
     { icon: TrendingUp, label: "Popular", path: "/popular" },
     { icon: Zap, label: "Recent", path: "/recent" },
   ];

@@ -12,6 +12,9 @@ import {
   Flag,
   X,
   Loader2,
+  Edit2,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 interface PostCardProps {
@@ -62,7 +65,11 @@ export default function PostCard({ post, onDelete, showCommunity = true }: PostC
   const [repostCount, setRepostCount] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
   const [showRepostModal, setShowRepostModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editContent, setEditContent] = useState(post.content);
   const [repostCaption, setRepostCaption] = useState("");
+  const [reportReason, setReportReason] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -127,14 +134,26 @@ export default function PostCard({ post, onDelete, showCommunity = true }: PostC
           .eq("post_id", post.id)
           .eq("user_id", userId)
           .eq("type", "like");
-        setLikeCount((prev) => Math.max(0, prev - 1));
       } else {
         await supabase
           .from("post_reactions")
           .insert({ post_id: post.id, user_id: userId, type: "like" });
-        setLikeCount((prev) => prev + 1);
       }
       setLiked(!liked);
+      // Optimistic update so the tap feels instant.
+      setLikeCount((prev) => (liked ? Math.max(0, prev - 1) : prev + 1));
+
+      // Reconcile this card's own count with the real number rather than trusting the
+      // local increment forever (e.g. if a write partially fails, or the same post is
+      // liked from another tab/device). Other screens get an accurate count for free on
+      // their next fetch since likes_count is now a live aggregate (see POST_SELECT_FIELDS),
+      // not a cached column — so there's nothing to write back here.
+      const { count } = await supabase
+        .from("post_reactions")
+        .select("id", { count: "exact", head: true })
+        .eq("post_id", post.id)
+        .eq("type", "like");
+      setLikeCount(count || 0);
     } catch (err) {
       console.error("Like error:", err);
     }
@@ -217,6 +236,92 @@ export default function PostCard({ post, onDelete, showCommunity = true }: PostC
       onDelete?.(post.id);
     } catch (err) {
       console.error("Delete error:", err);
+    }
+  }
+
+  async function handleEdit() {
+    if (!userId || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .update({ content: editContent, title: editContent.substring(0, 50) })
+        .eq("id", post.id);
+      
+      if (error) throw error;
+      
+      post.content = editContent; // Update local ref if possible, or trigger refresh via parent
+      setShowEditModal(false);
+      if (onDelete) onDelete(post.id); // Trigger a refresh in parent if they provided it
+    } catch (err) {
+      console.error("Edit error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleReport() {
+    if (!userId || !reportReason || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from("report_posts").insert({
+        post_id: post.id,
+        reporter_id: userId,
+        community_id: post.community_id,
+        reason: reportReason,
+        status: "pending"
+      });
+      if (error) throw error;
+      setShowReportModal(false);
+      setReportReason("");
+      alert("Report submitted successfully.");
+    } catch (err) {
+      console.error("Report error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleEdit() {
+    if (!userId || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("posts")
+        .update({ content: editContent, title: editContent.substring(0, 50) })
+        .eq("id", post.id);
+      
+      if (error) throw error;
+      
+      post.content = editContent;
+      setShowEditModal(false);
+      if (onDelete) onDelete(post.id);
+    } catch (err) {
+      console.error("Edit error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleReport() {
+    if (!userId || !reportReason || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from("report_posts").insert({
+        post_id: post.id,
+        reporter_id: userId,
+        community_id: post.community_id,
+        reason: reportReason,
+        status: "pending"
+      });
+      if (error) throw error;
+      setShowReportModal(false);
+      setReportReason("");
+      alert("Report submitted successfully.");
+    } catch (err) {
+      console.error("Report error:", err);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -394,6 +499,32 @@ export default function PostCard({ post, onDelete, showCommunity = true }: PostC
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
+                          setEditContent(post.content);
+                          setShowEditModal(true);
+                          setShowMenu(false);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          width: "100%",
+                          padding: "10px 14px",
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          color: "var(--text-primary)",
+                          fontSize: "14px",
+                          textAlign: "left",
+                        }}
+                      >
+                        <Edit2 size={16} />
+                        Edit
+                      </button>
+                    )}
+                    {isAuthor && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
                           handleDelete();
                           setShowMenu(false);
                         }}
@@ -418,7 +549,7 @@ export default function PostCard({ post, onDelete, showCommunity = true }: PostC
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Report functionality
+                        setShowReportModal(true);
                         setShowMenu(false);
                       }}
                       style={{
@@ -604,6 +735,144 @@ export default function PostCard({ post, onDelete, showCommunity = true }: PostC
       </div>
 
       {/* Repost Modal */}
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 100,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "var(--surface)",
+            borderRadius: "20px",
+            padding: "24px",
+            width: "100%",
+            maxWidth: "500px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>Edit Post</h3>
+              <button onClick={() => setShowEditModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <textarea
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "16px",
+                borderRadius: "12px",
+                border: "1px solid var(--border)",
+                background: "var(--background)",
+                color: "var(--text-primary)",
+                fontSize: "14px",
+                resize: "vertical",
+                minHeight: "150px",
+                fontFamily: "inherit",
+                outline: "none",
+                marginBottom: "20px"
+              }}
+            />
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => setShowEditModal(false)}
+                style={{ flex: 1, padding: "12px", borderRadius: "10px", border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", fontWeight: 600, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEdit}
+                disabled={isSubmitting || !editContent.trim()}
+                style={{ flex: 2, padding: "12px", borderRadius: "10px", border: "none", background: "var(--accent)", color: "white", fontWeight: 700, cursor: isSubmitting ? "not-allowed" : "pointer", opacity: isSubmitting ? 0.7 : 1 }}
+              >
+                {isSubmitting ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div style={{
+          position: "fixed",
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 100,
+          padding: "20px",
+        }}>
+          <div style={{
+            background: "var(--surface)",
+            borderRadius: "20px",
+            padding: "24px",
+            width: "100%",
+            maxWidth: "400px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: 800 }}>Report Content</h3>
+              <button onClick={() => setShowReportModal(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)" }}>
+                <X size={20} />
+              </button>
+            </div>
+            <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>Why are you reporting this post?</p>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "20px" }}>
+              {["Harassment", "Spam", "Misinformation", "Inappropriate", "Other"].map(reason => (
+                <button
+                  key={reason}
+                  onClick={() => setReportReason(reason)}
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: "10px",
+                    border: "1px solid var(--border)",
+                    background: reportReason === reason ? "rgba(13, 148, 136, 0.1)" : "transparent",
+                    color: reportReason === reason ? "var(--accent)" : "var(--text-primary)",
+                    textAlign: "left",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    transition: "all 0.2s"
+                  }}
+                >
+                  {reason}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleReport}
+              disabled={isSubmitting || !reportReason}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: "12px",
+                background: "rgb(239, 68, 68)",
+                color: "white",
+                border: "none",
+                fontWeight: 700,
+                fontSize: "15px",
+                cursor: (isSubmitting || !reportReason) ? "not-allowed" : "pointer",
+                opacity: (isSubmitting || !reportReason) ? 0.6 : 1,
+              }}
+            >
+              {isSubmitting ? "Submitting..." : "Submit Report"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {showRepostModal && (
         <div style={{
           position: "fixed",

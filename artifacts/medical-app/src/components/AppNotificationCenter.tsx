@@ -11,6 +11,7 @@ export function AppNotificationCenter() {
   const { addNotification, subscribeToNotifications } = useNotificationContext();
 
   useEffect(() => {
+    let active = true;
     let likeChannel: ReturnType<typeof supabase.channel> | null = null;
     let commentChannel: ReturnType<typeof supabase.channel> | null = null;
     let unsubscribe: (() => void) | null = null;
@@ -18,10 +19,14 @@ export function AppNotificationCenter() {
     async function setupListeners() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user || !active) return;
 
         // Subscribe to real-time notifications for THIS user only
         unsubscribe = subscribeToNotifications(user.id);
+        if (!active) {
+          unsubscribe?.();
+          return;
+        }
 
         // IMPORTANT: post_likes.user_id and comments.user_id are the
         // LIKER/COMMENTER, not the post author. Filtering on
@@ -35,6 +40,11 @@ export function AppNotificationCenter() {
           .from("posts")
           .select("id")
           .eq("author_id", user.id);
+
+        if (!active) {
+          unsubscribe?.();
+          return;
+        }
 
         if (postsError) {
           console.error("Error fetching user's posts for notification scope:", postsError);
@@ -62,6 +72,7 @@ export function AppNotificationCenter() {
               filter: postIdFilter,
             },
             async (payload) => {
+              if (!active) return;
               const likeData = payload.new as any;
 
               // Don't notify when the user likes their own post
@@ -73,6 +84,8 @@ export function AppNotificationCenter() {
                 .eq("id", likeData.user_id)
                 .single();
 
+              if (!active) return;
+
               await supabase.from("notifications").insert({
                 user_id: user.id,
                 type: "like",
@@ -82,12 +95,19 @@ export function AppNotificationCenter() {
                 read: false,
               });
             }
-          )
-          .subscribe((status) => {
-            if (status === "CHANNEL_ERROR") {
-              console.error("Like channel error");
-            }
-          });
+          );
+
+        if (!active) {
+          if (likeChannel) supabase.removeChannel(likeChannel);
+          unsubscribe?.();
+          return;
+        }
+
+        likeChannel.subscribe((status) => {
+          if (status !== "SUBSCRIBED" && status !== "CHANNEL_ERROR") {
+            console.warn("Like channel status:", status);
+          }
+        });
 
         // Listen for comments on user's posts
         commentChannel = supabase
@@ -101,6 +121,7 @@ export function AppNotificationCenter() {
               filter: postIdFilter,
             },
             async (payload) => {
+              if (!active) return;
               const commentData = payload.new as any;
 
               // Don't notify when the user comments on their own post
@@ -112,6 +133,8 @@ export function AppNotificationCenter() {
                 .eq("id", commentData.user_id)
                 .single();
 
+              if (!active) return;
+
               await supabase.from("notifications").insert({
                 user_id: user.id,
                 type: "comment",
@@ -121,12 +144,20 @@ export function AppNotificationCenter() {
                 read: false,
               });
             }
-          )
-          .subscribe((status) => {
-            if (status === "CHANNEL_ERROR") {
-              console.error("Comment channel error");
-            }
-          });
+          );
+
+        if (!active) {
+          if (likeChannel) supabase.removeChannel(likeChannel);
+          if (commentChannel) supabase.removeChannel(commentChannel);
+          unsubscribe?.();
+          return;
+        }
+
+        commentChannel.subscribe((status) => {
+          if (status !== "SUBSCRIBED" && status !== "CHANNEL_ERROR") {
+            console.warn("Comment channel status:", status);
+          }
+        });
       } catch (err) {
         console.error("Error setting up notification listeners:", err);
       }
@@ -135,6 +166,7 @@ export function AppNotificationCenter() {
     setupListeners();
 
     return () => {
+      active = false;
       unsubscribe?.();
       if (likeChannel) supabase.removeChannel(likeChannel);
       if (commentChannel) supabase.removeChannel(commentChannel);

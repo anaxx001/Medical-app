@@ -71,12 +71,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    let unsubscribe: (() => void) | null = null;
+    let active = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     async function setupNotifications() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!user || !active) return;
 
         const { data } = await supabase
           .from("notifications")
@@ -84,11 +85,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           .eq("user_id", user.id)
           .eq("read", false);
 
+        if (!active) return;
+
         if (data) {
           setUnreadNotificationCount(data.length);
         }
 
-        const channel = supabase
+        channel = supabase
           .channel(`notifications-${user.id}`)
           .on(
             "postgres_changes",
@@ -99,22 +102,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               filter: `user_id=eq.${user.id}`,
             },
             async () => {
+              if (!active) return;
               const { data: updatedData } = await supabase
                 .from("notifications")
                 .select("id")
                 .eq("user_id", user.id)
                 .eq("read", false);
 
+              if (!active) return;
               if (updatedData) {
                 setUnreadNotificationCount(updatedData.length);
               }
             }
-          )
-          .subscribe();
+          );
 
-        unsubscribe = () => {
-          supabase.removeChannel(channel);
-        };
+        if (!active) {
+          if (channel) supabase.removeChannel(channel);
+          return;
+        }
+
+        channel.subscribe();
       } catch (err) {
         console.error("Error setting up notifications:", err);
       }
@@ -123,7 +130,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     setupNotifications();
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      active = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 

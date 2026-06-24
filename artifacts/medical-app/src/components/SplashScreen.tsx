@@ -95,7 +95,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
             alt="MedStudent"
             style={{ width: "72px", height: "72px", borderRadius: "18px", objectFit: "contain" }}
             onError={(e) => {
-              (e.target as HTMLImageElement).style.display = "none";
+              console.error("Logo failed to load:", e);
             }}
           />
         </div>

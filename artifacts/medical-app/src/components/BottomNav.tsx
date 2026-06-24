@@ -48,8 +48,12 @@ export default function BottomNav() {
   useEffect(() => {
     if (!userId) return;
 
+    let active = true;
+
     async function fetchUnreadCounts() {
       try {
+        if (!active) return;
+
         // Unread messages
         const { count: msgCount, error: msgError } = await supabase
           .from("messages")
@@ -59,6 +63,8 @@ export default function BottomNav() {
 
         if (msgError) console.error("Message count error:", msgError);
 
+        if (!active) return;
+
         // Unread notifications
         const { count: notifCount, error: notifError } = await supabase
           .from("notifications")
@@ -67,6 +73,8 @@ export default function BottomNav() {
           .eq("read", false);
 
         if (notifError) console.error("Notification count error:", notifError);
+
+        if (!active) return;
 
         // New news posts since last viewed (or last 24h on first visit)
         const lastViewed = localStorage.getItem("news_last_viewed");
@@ -78,6 +86,8 @@ export default function BottomNav() {
           .gt("created_at", since);
 
         if (newsError) console.error("News count error:", newsError);
+
+        if (!active) return;
 
         setUnreadCounts({
           messages: msgCount || 0,
@@ -93,7 +103,7 @@ export default function BottomNav() {
 
     // Realtime subscription for messages (new + marked as read)
     const messageSubscription = supabase
-      .channel("bottom-nav-messages")
+      .channel(`bottom-nav-messages:${userId}`)
       .on(
         "postgres_changes",
         {
@@ -102,13 +112,15 @@ export default function BottomNav() {
           table: "messages",
           filter: `recipient_id=eq.${userId}`,
         },
-        () => fetchUnreadCounts()
+        () => {
+          if (active) fetchUnreadCounts();
+        }
       )
       .subscribe();
 
     // Realtime subscription for notifications (new + marked as read)
     const notifSubscription = supabase
-      .channel("bottom-nav-notifications")
+      .channel(`bottom-nav-notifications:${userId}`)
       .on(
         "postgres_changes",
         {
@@ -117,16 +129,21 @@ export default function BottomNav() {
           table: "notifications",
           filter: `user_id=eq.${userId}`,
         },
-        () => fetchUnreadCounts()
+        () => {
+          if (active) fetchUnreadCounts();
+        }
       )
       .subscribe();
 
     // Poll every 30 seconds as fallback
-    const interval = setInterval(fetchUnreadCounts, 30000);
+    const interval = setInterval(() => {
+      if (active) fetchUnreadCounts();
+    }, 30000);
 
     return () => {
-      messageSubscription.unsubscribe();
-      notifSubscription.unsubscribe();
+      active = false;
+      supabase.removeChannel(messageSubscription);
+      supabase.removeChannel(notifSubscription);
       clearInterval(interval);
     };
   }, [userId]);
